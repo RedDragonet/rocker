@@ -7,11 +7,12 @@ import (
 	log "github.com/sirupsen/logrus"
 	"math/rand"
 	"os"
+	"strings"
 	"time"
 )
 
-func Run(interactive, tty bool, cmd string, args []string, res *subsystem.ResourceConfig) {
-	parent := container.NewParentProcess(interactive, tty, cmd, args)
+func Run(interactive, tty bool, cmdArray []string, res *subsystem.ResourceConfig) {
+	parent, pipeWrite := container.NewParentProcess(interactive, tty)
 	if parent == nil {
 		log.Errorf("创建父进程失败")
 		return
@@ -24,6 +25,11 @@ func Run(interactive, tty bool, cmd string, args []string, res *subsystem.Resour
 	if err := parent.Start(); err != nil {
 		log.Infof("父进程运行失败")
 	}
+
+	if err := sendInitCommand(cmdArray, pipeWrite); err != nil {
+		exitError(err)
+	}
+
 	log.Infof("创建父运行成功，开始等待")
 	log.Infof("当前进程ID", os.Getpid())
 
@@ -44,6 +50,14 @@ func Run(interactive, tty bool, cmd string, args []string, res *subsystem.Resour
 	log.Infof("父进程运行结束")
 
 	os.Exit(0)
+}
+
+func sendInitCommand(cmdArray []string, pipeWrite *os.File) (err error) {
+	args := strings.Join(cmdArray, " ")
+	log.Infof("发送初始化参数 %s", args)
+	_, err = pipeWrite.WriteString(args)
+	pipeWrite.Close()
+	return
 }
 
 func exitError(err error) {

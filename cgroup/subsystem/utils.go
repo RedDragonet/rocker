@@ -40,7 +40,7 @@ func FindCgroupMountPoint(subsystem string) (string, error) {
 	}
 
 	log.Errorf("查找对应 subsystem 的挂载点 %s 失败，未找到对于挂载点", subsystem, err)
-	return "", fmt.Errorf("查找对应 subsystem 的挂载点 %s 失败，未找到对于挂载点", subsystem, err)
+	return "", fmt.Errorf("查找对应 subsystem 的挂载点 %s 失败，未找到对于挂载点 %v", subsystem, err)
 }
 
 //获取/创建 cgroup 对应 subsystem 的目录

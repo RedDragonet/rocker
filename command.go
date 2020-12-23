@@ -13,12 +13,7 @@ func initCommand() *cli.Command {
 		Name:  "init",
 		Usage: `初始化容器，禁止外部调用`,
 		Action: func(context *cli.Context) error {
-			log.Infof("初始化开始")
-
-			cmd := context.Args().Get(0)
-			log.Infof("初始化命令 %s 参数 %v", cmd, context.Args().Slice())
-
-			return container.NewInitProcess(cmd, context.Args().Slice())
+			return container.NewInitProcess()
 		},
 	}
 }
@@ -63,8 +58,8 @@ func runCommand() *cli.Command {
 				CpuShare:    context.String("cpushare"),
 			}
 
-			log.Infof("命令 %s,参数 %b,%b", cmd, interactive, tty)
-			Run(interactive, tty, cmd, context.Args().Slice()[1:], resConf)
+			log.Infof("命令 %s，参数 %b,%b", cmd, interactive, tty)
+			Run(interactive, tty, context.Args().Slice(), resConf)
 			return nil
 		},
 	}
