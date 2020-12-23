@@ -29,20 +29,20 @@ func NewInitProcess(command string, args []string) error {
 	//	return err
 	//}
 
-	argv := []string{command}
-	if err := syscall.Exec(command, argv, os.Environ()); err != nil {
-		logrus.Errorf(err.Error())
+	logrus.Infof("syscall.Exec 开始，command=%s args=%v", command, args)
+	if err := syscall.Exec(command, args, os.Environ()); err != nil {
+		logrus.Errorf("syscall.Exec Error %s", err.Error())
 		return err
 	}
 	return nil
 }
 
-func NewParentProcess(interactive, tty bool, command string) *exec.Cmd {
+func NewParentProcess(interactive, tty bool, command string, args []string) *exec.Cmd {
 	//首先调用自己的初始化命令
-	args := []string{"init", command}
+	args = append([]string{"init", command}, args...)
 	cmd := exec.Command("/proc/self/exe", args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWIPC | syscall.CLONE_NEWNET | syscall.CLONE_NEWNS | syscall.CLONE_NEWPID ,
+		Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWIPC | syscall.CLONE_NEWNET | syscall.CLONE_NEWNS | syscall.CLONE_NEWPID,
 	}
 
 	//交互模式

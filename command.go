@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/RedDragonet/rocker/cgroup/subsystem"
 	"github.com/RedDragonet/rocker/container"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
@@ -15,9 +16,9 @@ func initCommand() *cli.Command {
 			log.Infof("初始化开始")
 
 			cmd := context.Args().Get(0)
-			log.Infof("初始化命令 %s", cmd)
+			log.Infof("初始化命令 %s 参数 %v", cmd, context.Args().Slice())
 
-			return container.NewInitProcess(cmd, nil)
+			return container.NewInitProcess(cmd, context.Args().Slice())
 		},
 	}
 }
@@ -35,6 +36,18 @@ func runCommand() *cli.Command {
 				Name:  "t",
 				Usage: "虚拟控制台",
 			},
+			&cli.StringFlag{
+				Name:  "m",
+				Usage: "内存上限",
+			},
+			&cli.StringFlag{
+				Name:  "cpuset",
+				Usage: "指定Cpu",
+			},
+			&cli.StringFlag{
+				Name:  "cpushare",
+				Usage: "指定Cpu占用率",
+			},
 		},
 		Action: func(context *cli.Context) error {
 			if context.Args().Len() < 1 {
@@ -44,10 +57,15 @@ func runCommand() *cli.Command {
 			interactive := context.Bool("i")
 			tty := context.Bool("t")
 
+			resConf := &subsystem.ResourceConfig{
+				MemoryLimit: context.String("m"),
+				CpuSet:      context.String("cpuset"),
+				CpuShare:    context.String("cpushare"),
+			}
+
 			log.Infof("命令 %s,参数 %b,%b", cmd, interactive, tty)
-			Run(interactive, tty, cmd)
+			Run(interactive, tty, cmd, context.Args().Slice()[1:], resConf)
 			return nil
 		},
 	}
 }
-
