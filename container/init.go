@@ -105,7 +105,7 @@ func readUserCommand() []string {
 	return strings.Split(msgStr, " ")
 }
 
-func NewParentProcess(interactive, tty bool) (*exec.Cmd, *os.File) {
+func NewParentProcess(interactive, tty bool, containerId string) (*exec.Cmd, *os.File) {
 	//首先调用自己的初始化命令
 	cmd := exec.Command("/proc/self/exe", "init")
 	fmt.Println(os.Getuid(), os.Getgid())
@@ -148,6 +148,15 @@ func NewParentProcess(interactive, tty bool) (*exec.Cmd, *os.File) {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 	}
+
+	//mount overlayFS
+	mntUrl, err := NewWorkSpace("busybox.tar", containerId)
+	if err != nil {
+		log.Errorf("NewWorkSpace 失败 %v", err)
+		return nil, nil
+	}
+	cmd.Dir = mntUrl
+
 	return cmd, write
 }
 
