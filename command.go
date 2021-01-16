@@ -32,6 +32,10 @@ func runCommand() *cli.Command {
 				Usage: "虚拟控制台",
 			},
 			&cli.StringFlag{
+				Name:  "v",
+				Usage: "挂载volume",
+			},
+			&cli.StringFlag{
 				Name:  "m",
 				Usage: "内存上限",
 			},
@@ -51,6 +55,7 @@ func runCommand() *cli.Command {
 			cmd := context.Args().Get(0)
 			interactive := context.Bool("i")
 			tty := context.Bool("t")
+			volume := context.String("v")
 
 			resConf := &subsystem.ResourceConfig{
 				MemoryLimit: context.String("m"),
@@ -59,7 +64,7 @@ func runCommand() *cli.Command {
 			}
 
 			log.Infof("命令 %s，参数 %b,%b", cmd, interactive, tty)
-			Run(interactive, tty, context.Args().Slice(), resConf)
+			Run(interactive, tty, volume, context.Args().Slice(), resConf)
 			return nil
 		},
 	}

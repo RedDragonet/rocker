@@ -4,7 +4,7 @@ import (
 	"github.com/RedDragonet/rocker/cgroup"
 	"github.com/RedDragonet/rocker/cgroup/subsystem"
 	"github.com/RedDragonet/rocker/container"
-	stringid "github.com/RedDragonet/rocker/pkg"
+	stringid2 "github.com/RedDragonet/rocker/pkg/stringid"
 	log "github.com/sirupsen/logrus"
 	"math/rand"
 	"os"
@@ -12,10 +12,10 @@ import (
 	"time"
 )
 
-func Run(interactive, tty bool, cmdArray []string, res *subsystem.ResourceConfig) {
-	containerId := stringid.GenerateRandomID()
+func Run(interactive, tty bool, volume string, cmdArray []string, res *subsystem.ResourceConfig) {
+	containerId := stringid2.GenerateRandomID()
 
-	parent, pipeWrite := container.NewParentProcess(interactive, tty, containerId)
+	parent, pipeWrite := container.NewParentProcess(interactive, tty, volume, containerId)
 	if parent == nil {
 		log.Errorf("创建父进程失败")
 		return
@@ -51,7 +51,9 @@ func Run(interactive, tty bool, cmdArray []string, res *subsystem.ResourceConfig
 
 	_ = parent.Wait()
 
+	container.UnMountVolume(containerId, volume)
 	container.DelWorkSpace(containerId)
+
 
 	log.Infof("父进程运行结束")
 
