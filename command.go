@@ -69,3 +69,13 @@ func runCommand() *cli.Command {
 		},
 	}
 }
+
+func commitCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "commit",
+		Usage: `打包镜像`,
+		Action: func(context *cli.Context) error {
+			return commit(context.Args().Get(0), context.Args().Get(1))
+		},
+	}
+}

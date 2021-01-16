@@ -27,8 +27,6 @@ func init() {
 	}
 }
 
-
-
 //目前暂定rootFs是当前目录下的tar包
 func NewWorkSpace(rootfsPath, id string) (mntUrl string, err error) {
 	//overlayFS mount
@@ -206,15 +204,26 @@ func getLower(parent string) (string, error) {
 }
 
 //获得所有的lowerDir
-//func getLowerDirs(id string) ([]string, error) {
-//	var lowersArray []string
-//	lowers, err := ioutil.ReadFile(path.Join(dirPath(id), lowerFile))
-//	if err == nil {
-//		for _, s := range strings.Split(string(lowers), ":") {
-//			lowersArray = append(lowersArray, path.Join(home, s))
-//		}
-//	} else if !os.IsNotExist(err) {
-//		return nil, err
-//	}
-//	return lowersArray, nil
-//}
+func GetLowerDirs(id string) ([]string, error) {
+	var lowersArray []string
+	lowers, err := ioutil.ReadFile(path.Join(dirPath(id), lowerFile))
+	if err == nil {
+		for _, s := range strings.Split(string(lowers), ":") {
+			lowersArray = append(lowersArray, s)
+		}
+	} else if !os.IsNotExist(err) {
+		return nil, err
+	}
+	return lowersArray, nil
+}
+
+func GetHome() string {
+	return home
+}
+
+func GetDiffDirName() string {
+	return diffDirName
+}
+func GetLowerFile() string {
+	return lowerFile
+}
