@@ -1,6 +1,7 @@
 package container
 
 import (
+	"encoding/json"
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
@@ -28,22 +29,50 @@ func init() {
 }
 
 //目前暂定rootFs是当前目录下的tar包
-func NewWorkSpace(rootfsPath, id string) (mntUrl string, err error) {
+//return 挂载的 mntUrl
+func NewWorkSpace(image, id string) (string, error) {
 	//overlayFS mount
+	//支持将打包的容器 恢复
 
-	rootfs := strings.Split(rootfsPath, ".")[0]
-	err = create(rootfs, "", rootfsPath)
+	//rootfs := strings.Split(rootfsPath, ".")[0]
+	layers, err := getLayersTarFile(image)
 	if err != nil {
-		return
+		return "", err
 	}
 
-	err = create(id, rootfs, "")
+	//从底层往上，创建每一层
+	err = LoopExtract(layers, image)
 	if err != nil {
-		return
+		return "", err
 	}
 
-	mntUrl, err = get(id)
-	return
+	//创建容器层
+	err = create(id, layers[len(layers)-1], "")
+	if err != nil {
+		return "", err
+	}
+
+	mntUrl, err := get(id)
+	return mntUrl, err
+}
+
+//循环解压image tar包
+func LoopExtract(layers []string, image string) error {
+	var err error
+	for index, layer := range layers {
+		log.Infof("Extract Layer %s", layer)
+		if index > 0 {
+			//上一级的layer
+			err = create(layer, layers[index-1], image)
+		} else {
+			err = create(layer, "", image)
+		}
+
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 //删除当前container层的目录
@@ -93,20 +122,20 @@ func get(id string) (string, error) {
 	return mergeDir, nil
 }
 
-func create(id, parent, diffTar string) error {
-	log.Infof("【overflowFS】创建目录 %s %s %s", id, parent, diffTar)
+func create(id, parent, image string) error {
+	log.Infof("【overflowFS】创建目录 %s %s", id, parent)
 
 	var retErr error
 	dir := path.Join(home, id)
 
 	if exist, _ := os.Stat(dir); exist != nil {
-		log.Infof("【overflowFS】目录存在跳过 %s %s %s", id, parent, diffTar)
+		log.Infof("【overflowFS】目录存在跳过 %s %s", id, parent)
 		return nil
 	}
 	//失败时
 	defer func() {
 		if retErr != nil {
-			log.Infof("【overflowFS】失败 %s %s %s", id, parent, diffTar)
+			log.Infof("【overflowFS】失败 %s %s", id, parent)
 			_ = os.RemoveAll(dir)
 		}
 	}()
@@ -122,25 +151,26 @@ func create(id, parent, diffTar string) error {
 
 	retErr = os.Mkdir(diffDirPath, 0700)
 	if retErr != nil {
-		log.Errorf("【overflowFS】创建diff目录失败 %s %s %s %s %v", id, parent, diffTar, diffDirPath, retErr)
+		log.Errorf("【overflowFS】创建diff目录失败 %s %s %s %v", id, parent, diffDirPath, retErr)
 		return retErr
 	}
 
 	retErr = os.Mkdir(workDirPath, 0700)
 	if retErr != nil {
-		log.Errorf("【overflowFS】创建work目录失败 %s %s %s %s %v", id, parent, diffTar, workDirPath, retErr)
+		log.Errorf("【overflowFS】创建work目录失败 %s %%s %s %v", id, parent, workDirPath, retErr)
 		return retErr
 	}
 
 	retErr = os.Mkdir(mergedDirPath, 0700)
 	if retErr != nil {
-		log.Errorf("【overflowFS】创建merge目录失败 %s %s %s %s %v", id, parent, diffTar, mergedDirPath, retErr)
+		log.Errorf("【overflowFS】创建merge目录失败 %s %s %s %v", id, parent, mergedDirPath, retErr)
 		return retErr
 	}
 
-	//解压对应层的文件
-	if diffTar != "" {
-		retErr = ApplyDiff(id, diffTar)
+	//非容器层
+	if image != "" {
+		//解压对应层的文件
+		retErr = ApplyDiff(id, image)
 		if retErr != nil {
 			return retErr
 		}
@@ -163,16 +193,27 @@ func create(id, parent, diffTar string) error {
 }
 
 //将每层的文件压缩比解压到对应的Diff文件夹
-func ApplyDiff(id, diffTar string) error {
+func ApplyDiff(id, image string) error {
 	var retErr error
+	home := GetHome()
+	dirPath := dirPath(id)
 	diffDirPath := getDiffPath(id)
-	log.Infof("解压RootFS %s => %s 开始", diffTar, diffDirPath)
-	if _, retErr = os.Stat(diffTar); retErr == nil {
-		if _, retErr = exec.Command("tar", "-xvf", diffTar, "-C", diffDirPath).CombinedOutput(); retErr != nil {
-			log.Errorf("解压RootFS %s => %s 失败 %v", diffTar, diffDirPath, retErr)
-		}
-		log.Infof("解压RootFS %s => %s 成功", diffTar, diffDirPath)
+	log.Infof("解压 layer.tar %s %s %s 开始", id, image, dirPath)
+
+	if _, retErr = exec.Command("tar", "-xf", image+".tar", "-C", home, path.Join(id, "layer.tar")).CombinedOutput(); retErr != nil {
+		log.Info("tar", "-xf", image+".tar", "-C", home, path.Join(id, "layer.tar"))
+		log.Errorf("解压 %s %s => %s 失败 %v", image+".tar", dirPath, "layer.tar", retErr)
+		return retErr
 	}
+
+	if _, retErr = exec.Command("tar", "-xf", path.Join(dirPath, "layer.tar"), "-C", diffDirPath, ".").CombinedOutput(); retErr != nil {
+		log.Info("tar", "-xf", path.Join(dirPath, "layer.tar"), "-C", diffDirPath, ".")
+		log.Errorf("解压 layer.tar %s => %s 失败 %v", "layer.tar", diffDirPath, retErr)
+		return retErr
+	}
+
+	log.Infof("解压 layer.tar %s => %s 成功", path.Join(dirPath, "layer.tar"), diffDirPath)
+
 	return retErr
 }
 
@@ -224,6 +265,53 @@ func GetHome() string {
 func GetDiffDirName() string {
 	return diffDirName
 }
-func GetLowerFile() string {
-	return lowerFile
+
+func GetDiffPath(id string) string {
+	return getDiffPath(id)
+}
+
+//解析当前容器描述文件
+func getLayersTarFile(tar string) ([]string, error) {
+	fileDir := path.Join("/tmp/rocker/parse/", tar)
+	tarFile := tar + ".tar"
+
+	_ = os.MkdirAll(fileDir, 0700)
+	defer func() {
+		_ = os.RemoveAll(fileDir)
+	}()
+
+	if _, err := os.Stat(tarFile); err == nil {
+		log.Info("tar", "-C", fileDir, "-xf", tarFile, "manifest.json")
+		if _, err := exec.Command("tar", "-C", fileDir, "-xf", tarFile, "manifest.json").CombinedOutput(); err != nil {
+			log.Errorf("parse manifest.json %s => %s 失败 %v", tarFile, fileDir, err)
+		}
+		log.Infof("parse manifest.json %s => %s 失败 %v", tarFile, fileDir)
+	}
+
+	filePath := path.Join(fileDir, "manifest.json")
+
+	//[{"Layers":["12sbv","qe123","123sdf"]}]
+	data, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	//这里暂时不引入第三方 Json 包
+	jsonDataList := make([]json.RawMessage, 0)
+	if err := json.Unmarshal([]byte(data), &jsonDataList); err != nil {
+		log.Errorf("json Unmarshal %s %v", data, err)
+		return nil, err
+	}
+
+	jsonData := make(map[string][]string)
+	if err := json.Unmarshal(jsonDataList[0], &jsonData); err != nil {
+		log.Errorf("json Unmarshal %s %v", jsonDataList[0], err)
+		return nil, err
+	}
+
+	if layers, ok := jsonData["Layers"]; ok {
+		return layers, nil
+	}
+
+	return nil, fmt.Errorf("未找到的 image %s 配置信息", "")
 }

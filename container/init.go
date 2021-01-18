@@ -105,7 +105,7 @@ func readUserCommand() []string {
 	return strings.Split(msgStr, " ")
 }
 
-func NewParentProcess(interactive, tty bool, volume string, containerId string) (*exec.Cmd, *os.File) {
+func NewParentProcess(interactive, tty bool, image, volume string, containerId string) (*exec.Cmd, *os.File) {
 	//首先调用自己的初始化命令
 	cmd := exec.Command("/proc/self/exe", "init")
 	fmt.Println(os.Getuid(), os.Getgid())
@@ -150,13 +150,13 @@ func NewParentProcess(interactive, tty bool, volume string, containerId string) 
 	}
 
 	//mount overlayFS
-	mntUrl, err := NewWorkSpace("busybox.tar", containerId)
+	mntUrl, err := NewWorkSpace(image, containerId)
 	if err != nil {
-		log.Errorf("NewWorkSpace 失败 %v", err)
+		log.Errorf("NewWorkSpace %s 失败 %v", image, err)
 		return nil, nil
 	}
 
-	if volume != ""{
+	if volume != "" {
 		err = MountVolume(mntUrl, volume)
 		if err != nil {
 			log.Errorf("mountVolume 失败 %v", err)
@@ -168,7 +168,6 @@ func NewParentProcess(interactive, tty bool, volume string, containerId string) 
 
 	return cmd, write
 }
-
 
 //建议参数 http://ifeanyi.co/posts/linux-namespaces-part-3/
 func pivotRoot(rootfs string) error {

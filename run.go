@@ -15,7 +15,7 @@ import (
 func Run(interactive, tty bool, volume string, cmdArray []string, res *subsystem.ResourceConfig) {
 	containerId := stringid2.GenerateRandomID()
 
-	parent, pipeWrite := container.NewParentProcess(interactive, tty, volume, containerId)
+	parent, pipeWrite := container.NewParentProcess(interactive, tty, cmdArray[0], volume, containerId)
 	if parent == nil {
 		log.Errorf("创建父进程失败")
 		return
@@ -29,7 +29,7 @@ func Run(interactive, tty bool, volume string, cmdArray []string, res *subsystem
 		log.Infof("父进程运行失败")
 	}
 
-	if err := sendInitCommand(cmdArray, pipeWrite); err != nil {
+	if err := sendInitCommand(cmdArray[1:], pipeWrite); err != nil {
 		exitError(err)
 	}
 
@@ -53,7 +53,6 @@ func Run(interactive, tty bool, volume string, cmdArray []string, res *subsystem
 
 	container.UnMountVolume(containerId, volume)
 	container.DelWorkSpace(containerId)
-
 
 	log.Infof("父进程运行结束")
 
