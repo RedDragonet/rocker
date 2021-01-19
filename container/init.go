@@ -59,7 +59,7 @@ func setUpMount() error {
 	//由于挂载 Proc 需要 ROOT 权限
 	//由于设置了 CLONE_NEWUSER，运行用户无 ROOT 权限
 	//需要将 CLONE_NEWPID 隔离的进程信息挂载到 newrootfs 中
-	err = mountProc()
+	err = mountProc(pwd)
 	if err != nil {
 		return err
 	}
@@ -81,13 +81,13 @@ func setUpMount() error {
 	return nil
 }
 
-func mountProc() error {
+func mountProc(pwd string) error {
 	//mount proc
 	defaultMountFlags := syscall.MS_NOEXEC | syscall.MS_NOSUID | syscall.MS_NODEV
 
 	//挂载 Proc 目录
 	log.Infof("挂载 Proc 目录")
-	return syscall.Mount("proc", "/proc", "proc", uintptr(defaultMountFlags), "")
+	return syscall.Mount("proc", path.Join(pwd, "/proc"), "proc", uintptr(defaultMountFlags), "")
 }
 
 func readUserCommand() []string {
