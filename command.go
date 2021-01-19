@@ -31,6 +31,10 @@ func runCommand() *cli.Command {
 				Name:  "t",
 				Usage: "虚拟控制台",
 			},
+			&cli.BoolFlag{
+				Name:  "d",
+				Usage: "后台运行",
+			},
 			&cli.StringFlag{
 				Name:  "v",
 				Usage: "挂载volume",
@@ -56,6 +60,11 @@ func runCommand() *cli.Command {
 			interactive := context.Bool("i")
 			tty := context.Bool("t")
 			volume := context.String("v")
+			detach := context.Bool("d")
+
+			if detach && interactive {
+				return fmt.Errorf("交互模式，与后台运行模式不能共存")
+			}
 
 			resConf := &subsystem.ResourceConfig{
 				MemoryLimit: context.String("m"),

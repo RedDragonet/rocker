@@ -49,7 +49,11 @@ func Run(interactive, tty bool, volume string, cmdArray []string, res *subsystem
 		exitError(err)
 	}
 
-	_ = parent.Wait()
+	//交互模式
+	//父进程等待子进程退出
+	if interactive {
+		_ = parent.Wait()
+	}
 
 	container.UnMountVolume(containerId, volume)
 	container.DelWorkSpace(containerId)
