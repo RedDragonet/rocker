@@ -15,6 +15,7 @@ import (
 var (
 	DefaultInfoLocation string = "/var/lib/rocker/containers"
 	ConfigName          string = "config.json"
+	ContainerLogFile    string = "container.log"
 )
 
 //容器初始化命令
@@ -110,7 +111,7 @@ func readUserCommand() []string {
 	return strings.Split(msgStr, " ")
 }
 
-func NewParentProcess(interactive, tty bool, image, volume string, containerId string) (*exec.Cmd, *os.File) {
+func NewParentProcess(interactive, tty bool, image, volume string, containerId, containerName string) (*exec.Cmd, *os.File) {
 	//首先调用自己的初始化命令
 	cmd := exec.Command("/proc/self/exe", "init")
 	fmt.Println(os.Getuid(), os.Getgid())
@@ -152,6 +153,19 @@ func NewParentProcess(interactive, tty bool, image, volume string, containerId s
 	if tty {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
+	} else {
+		dirURL := path.Join(DefaultInfoLocation, containerName)
+		if err := os.MkdirAll(dirURL, 0622); err != nil {
+			log.Errorf("NewParentProcess mkdir %s error %v", dirURL, err)
+			return nil, nil
+		}
+		stdLogFilePath := path.Join(dirURL, ContainerLogFile)
+		stdLogFile, err := os.Create(stdLogFilePath)
+		if err != nil {
+			log.Errorf("NewParentProcess create file %s error %v", stdLogFilePath, err)
+			return nil, nil
+		}
+		cmd.Stdout = stdLogFile
 	}
 
 	//mount overlayFS

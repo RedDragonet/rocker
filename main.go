@@ -19,6 +19,7 @@ func main() {
 		runCommand(),
 		commitCommand(),
 		listCommand(),
+		logCommand(),
 	}
 
 	if err := app.Run(os.Args); err != nil {

@@ -16,10 +16,10 @@ import (
 func Run(interactive, tty bool, volume string, cmdArray []string, res *subsystem.ResourceConfig, containerName string) {
 	containerID := stringid.GenerateRandomID()
 	if containerName == "" {
-		containerName = containerID
+		containerName = containerID[:12]
 	}
 
-	parent, pipeWrite := container.NewParentProcess(interactive, tty, cmdArray[0], volume, containerID)
+	parent, pipeWrite := container.NewParentProcess(interactive, tty, cmdArray[0], volume, containerID, containerName)
 	if parent == nil {
 		log.Errorf("创建父进程失败")
 		return

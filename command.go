@@ -104,3 +104,21 @@ func listCommand() *cli.Command {
 		},
 	}
 }
+
+func logCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "log",
+		Usage: `显示日志`,
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:  "f",
+				Usage: "持续跟踪最新的日志",
+			},
+		},
+		Action: func(context *cli.Context) error {
+			follow := context.Bool("f")
+			logContainer(context.Args().Get(0), follow)
+			return nil
+		},
+	}
+}
