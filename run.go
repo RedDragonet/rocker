@@ -1,33 +1,37 @@
 package main
 
 import (
+	"encoding/json"
 	"github.com/RedDragonet/rocker/cgroup"
 	"github.com/RedDragonet/rocker/cgroup/subsystem"
 	"github.com/RedDragonet/rocker/container"
-	stringid2 "github.com/RedDragonet/rocker/pkg/stringid"
+	"github.com/RedDragonet/rocker/pkg/stringid"
 	log "github.com/sirupsen/logrus"
-	"math/rand"
 	"os"
+	"path"
 	"strings"
 	"time"
 )
 
-func Run(interactive, tty bool, volume string, cmdArray []string, res *subsystem.ResourceConfig) {
-	containerId := stringid2.GenerateRandomID()
+func Run(interactive, tty bool, volume string, cmdArray []string, res *subsystem.ResourceConfig, containerName string) {
+	containerID := stringid.GenerateRandomID()
+	if containerName == "" {
+		containerName = containerID
+	}
 
-	parent, pipeWrite := container.NewParentProcess(interactive, tty, cmdArray[0], volume, containerId)
+	parent, pipeWrite := container.NewParentProcess(interactive, tty, cmdArray[0], volume, containerID)
 	if parent == nil {
 		log.Errorf("创建父进程失败")
 		return
 	}
-
-	containerID := randStringBytes(10)
 
 	log.Infof("当前进程ID", os.Getpid())
 
 	if err := parent.Start(); err != nil {
 		log.Infof("父进程运行失败")
 	}
+
+	recordContainerInfo(parent.Process.Pid, cmdArray, containerName, containerID, volume)
 
 	if err := sendInitCommand(cmdArray[1:], pipeWrite); err != nil {
 		exitError(err)
@@ -53,10 +57,11 @@ func Run(interactive, tty bool, volume string, cmdArray []string, res *subsystem
 	//父进程等待子进程退出
 	if interactive {
 		_ = parent.Wait()
+		deleteContainerInfo(containerID)
 	}
 
-	container.UnMountVolume(containerId, volume)
-	container.DelWorkSpace(containerId)
+	container.UnMountVolume(containerID, volume)
+	container.DelWorkSpace(containerID)
 
 	log.Infof("父进程运行结束")
 
@@ -76,12 +81,52 @@ func exitError(err error) {
 	os.Exit(0)
 }
 
-func randStringBytes(n int) string {
-	letterBytes := "1234567890"
-	rand.Seed(time.Now().UnixNano())
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = letterBytes[rand.Intn(len(letterBytes))]
+func recordContainerInfo(containerPID int, commandArray []string, containerName, id, volume string) (string, error) {
+	containerInfo := &container.ContainerInfo{
+		ID: id,
+		State: container.State{
+			Pid:     containerPID,
+			Running: true,
+		},
+		Config: container.Config{
+			Cmd:     commandArray,
+			Image:   "",
+			Volumes: volume,
+		},
+		Created: time.Now(),
+		Name:    containerName,
 	}
-	return string(b)
+
+	jsonBytes, err := json.Marshal(containerInfo)
+	if err != nil {
+		log.Errorf("Record container info error %v", err)
+		return "", err
+	}
+	jsonStr := string(jsonBytes)
+
+	dirUrl := path.Join(container.DefaultInfoLocation, containerName)
+	if err := os.MkdirAll(dirUrl, 0622); err != nil {
+		log.Errorf("Mkdir error %s error %v", dirUrl, err)
+		return "", err
+	}
+	fileName := path.Join(dirUrl, container.ConfigName)
+	file, err := os.Create(fileName)
+	defer file.Close()
+	if err != nil {
+		log.Errorf("Create file %s error %v", fileName, err)
+		return "", err
+	}
+	if _, err := file.WriteString(jsonStr); err != nil {
+		log.Errorf("File write string error %v", err)
+		return "", err
+	}
+
+	return containerName, nil
+}
+
+func deleteContainerInfo(containerId string) {
+	dirURL := path.Join(container.DefaultInfoLocation, containerId)
+	if err := os.RemoveAll(dirURL); err != nil {
+		log.Errorf("Remove dir %s error %v", dirURL, err)
+	}
 }

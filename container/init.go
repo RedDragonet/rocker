@@ -12,6 +12,11 @@ import (
 	"syscall"
 )
 
+var (
+	DefaultInfoLocation string = "/var/lib/rocker/containers"
+	ConfigName          string = "config.json"
+)
+
 //容器初始化命令
 func NewInitProcess() error {
 	log.Infof("当前进程(init)ID %d", os.Getpid())

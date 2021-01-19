@@ -40,6 +40,10 @@ func runCommand() *cli.Command {
 				Usage: "挂载volume",
 			},
 			&cli.StringFlag{
+				Name:  "name",
+				Usage: "指定容器名称",
+			},
+			&cli.StringFlag{
 				Name:  "m",
 				Usage: "内存上限",
 			},
@@ -61,6 +65,7 @@ func runCommand() *cli.Command {
 			tty := context.Bool("t")
 			volume := context.String("v")
 			detach := context.Bool("d")
+			containerName := context.String("name")
 
 			if detach && interactive {
 				return fmt.Errorf("交互模式，与后台运行模式不能共存")
@@ -73,7 +78,7 @@ func runCommand() *cli.Command {
 			}
 
 			log.Infof("命令 %s，参数 %b,%b", cmd, interactive, tty)
-			Run(interactive, tty, volume, context.Args().Slice(), resConf)
+			Run(interactive, tty, volume, context.Args().Slice(), resConf, containerName)
 			return nil
 		},
 	}
@@ -85,6 +90,17 @@ func commitCommand() *cli.Command {
 		Usage: `打包镜像`,
 		Action: func(context *cli.Context) error {
 			return commit(context.Args().Get(0), context.Args().Get(1))
+		},
+	}
+}
+
+func listCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "ps",
+		Usage: `列出所有的镜像`,
+		Action: func(context *cli.Context) error {
+			ListContainers()
+			return nil
 		},
 	}
 }
