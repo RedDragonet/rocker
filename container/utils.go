@@ -49,6 +49,10 @@ func StopContainer(containerName string) error {
 	return save(info)
 }
 
+func RemoveContainer(containerName string) error {
+	return DeleteContainerInfo(containerName)
+}
+
 func RecordContainerInfo(containerPID int, commandArray []string, containerName, id, volume string) (string, error) {
 	containerInfo := &ContainerInfo{
 		ID: id,
@@ -103,9 +107,11 @@ func save(containerInfo *ContainerInfo) error {
 	return nil
 }
 
-func DeleteContainerInfo(containerId string) {
-	dirURL := path.Join(DefaultInfoLocation, containerId)
+func DeleteContainerInfo(containerName string) error{
+	dirURL := path.Join(DefaultInfoLocation, containerName)
 	if err := os.RemoveAll(dirURL); err != nil {
 		log.Errorf("Remove dir %s error %v", dirURL, err)
+		return err
 	}
+	return nil
 }

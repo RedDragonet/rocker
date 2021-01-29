@@ -160,3 +160,14 @@ func stopCommand() *cli.Command {
 		},
 	}
 }
+
+func removeCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "remove",
+		Usage: `删除容器`,
+		Action: func(context *cli.Context) error {
+			RemoveContainer(context.Args().Get(0))
+			return nil
+		},
+	}
+}

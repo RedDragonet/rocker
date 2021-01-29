@@ -54,7 +54,7 @@ func Run(interactive, tty bool, volume string, cmdArray []string, res *subsystem
 	//父进程等待子进程退出
 	if interactive {
 		_ = parent.Wait()
-		container.DeleteContainerInfo(containerID)
+		container.DeleteContainerInfo(containerName)
 		container.UnMountVolume(containerID, volume)
 		container.DelWorkSpace(containerID)
 	}
