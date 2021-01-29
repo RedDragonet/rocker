@@ -148,3 +148,15 @@ func execCommand() *cli.Command {
 		},
 	}
 }
+
+
+func stopCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "stop",
+		Usage: `停止容器`,
+		Action: func(context *cli.Context) error {
+			StopContainer(context.Args().Get(0))
+			return nil
+		},
+	}
+}

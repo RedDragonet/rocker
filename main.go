@@ -21,6 +21,7 @@ func main() {
 		listCommand(),
 		logCommand(),
 		execCommand(),
+		stopCommand(),
 	}
 
 	if err := app.Run(os.Args); err != nil {

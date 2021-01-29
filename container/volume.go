@@ -18,14 +18,21 @@ func MountVolume(rootfs, volume string) error {
 
 	//不存在则创建目录
 	if _, err := os.Stat(target); os.IsNotExist(err) {
-		os.Mkdir(target, 0700)
+		if sourceFile, err := os.Stat(source); !os.IsNotExist(err) {
+			targetDir := target
+			if !sourceFile.IsDir() {
+				targetDir = path.Dir(target)
+			}
+			log.Infof("mount volume create targetDir %s done.", targetDir)
+			os.MkdirAll(targetDir, 0700)
+		}
 	}
 
 	if err := syscall.Mount(source, target, "", syscall.MS_BIND|syscall.MS_REC, ""); err != nil {
 		log.Errorf("mount volume %s => %s error ", source, target, err)
 		return err
 	}
-	log.Info("mount volume %s done. %v", volume, err)
+	log.Infof("mount volume %s done. %v", volume, err)
 	return nil
 }
 func volumeSplit(rootfs, volume string) (source, target string, err error) {
