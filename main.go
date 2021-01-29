@@ -20,6 +20,7 @@ func main() {
 		commitCommand(),
 		listCommand(),
 		logCommand(),
+		execCommand(),
 	}
 
 	if err := app.Run(os.Args); err != nil {

@@ -58,10 +58,9 @@ func Run(interactive, tty bool, volume string, cmdArray []string, res *subsystem
 	if interactive {
 		_ = parent.Wait()
 		deleteContainerInfo(containerID)
+		container.UnMountVolume(containerID, volume)
+		container.DelWorkSpace(containerID)
 	}
-
-	container.UnMountVolume(containerID, volume)
-	container.DelWorkSpace(containerID)
 
 	log.Infof("父进程运行结束")
 
@@ -130,3 +129,17 @@ func deleteContainerInfo(containerId string) {
 		log.Errorf("Remove dir %s error %v", dirURL, err)
 	}
 }
+
+//func GetContainerPidByName(containerName string) (int, error) {
+//	dirURL := path.Join(container.DefaultInfoLocation, containerName)
+//	configFilePath := path.Join(dirURL, container.ConfigName)
+//	contentBytes, err := ioutil.ReadFile(configFilePath)
+//	if err != nil {
+//		return 0, err
+//	}
+//	var containerInfo container.ContainerInfo
+//	if err := json.Unmarshal(contentBytes, &containerInfo); err != nil {
+//		return 0, err
+//	}
+//	return containerInfo.State.Pid, nil
+//}

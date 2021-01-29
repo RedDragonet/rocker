@@ -6,6 +6,7 @@ import (
 	"github.com/RedDragonet/rocker/container"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
+	"os"
 )
 
 func initCommand() *cli.Command {
@@ -118,6 +119,31 @@ func logCommand() *cli.Command {
 		Action: func(context *cli.Context) error {
 			follow := context.Bool("f")
 			logContainer(context.Args().Get(0), follow)
+			return nil
+		},
+	}
+}
+
+func execCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "exec",
+		Usage: `在容器中运行命令`,
+		Action: func(context *cli.Context) error {
+			//This is for callback
+			if os.Getenv(ENV_EXEC_PID) != "" {
+				log.Infof("pid callback pid %s", os.Getgid())
+				return nil
+			}
+
+			if context.Args().Len() < 2 {
+				return fmt.Errorf("Missing container name or command")
+			}
+			containerName := context.Args().Get(0)
+			var commandArray []string
+			for _, arg := range context.Args().Tail() {
+				commandArray = append(commandArray, arg)
+			}
+			ExecContainer(containerName, commandArray)
 			return nil
 		},
 	}
