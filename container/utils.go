@@ -2,6 +2,8 @@ package container
 
 import (
 	"encoding/json"
+	"fmt"
+	"github.com/RedDragonet/rocker/cgroup/subsystem"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
@@ -14,6 +16,9 @@ func GetContainerPidByName(containerName string) (int, error) {
 	configFilePath := path.Join(dirURL, ConfigName)
 	contentBytes, err := ioutil.ReadFile(configFilePath)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return 0, fmt.Errorf("容器 %s 不存在", containerName)
+		}
 		return 0, err
 	}
 	var containerInfo ContainerInfo
@@ -53,7 +58,7 @@ func RemoveContainer(containerName string) error {
 	return DeleteContainerInfo(containerName)
 }
 
-func RecordContainerInfo(containerPID int, commandArray []string, containerName, id, volume string) (string, error) {
+func RecordContainerInfo(containerPID int, commandArray []string, containerName, id string, volumeSlice []string, res *subsystem.ResourceConfig) (string, error) {
 	containerInfo := &ContainerInfo{
 		ID: id,
 		State: State{
@@ -63,7 +68,12 @@ func RecordContainerInfo(containerPID int, commandArray []string, containerName,
 		Config: Config{
 			Cmd:     commandArray,
 			Image:   "",
-			Volumes: volume,
+			Volumes: volumeSlice,
+			CGroup: CGroupResourceConfig{
+				MemoryLimit: res.MemoryLimit,
+				CpuShare:    res.CpuShare,
+				CpuSet:      res.CpuSet,
+			},
 		},
 		Created: time.Now(),
 		Name:    containerName,
@@ -107,7 +117,7 @@ func save(containerInfo *ContainerInfo) error {
 	return nil
 }
 
-func DeleteContainerInfo(containerName string) error{
+func DeleteContainerInfo(containerName string) error {
 	dirURL := path.Join(DefaultInfoLocation, containerName)
 	if err := os.RemoveAll(dirURL); err != nil {
 		log.Errorf("Remove dir %s error %v", dirURL, err)

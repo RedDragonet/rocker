@@ -10,7 +10,17 @@ import (
 	"syscall"
 )
 
-func MountVolume(rootfs, volume string) error {
+func MountVolumeSlice(rootfs string, volumeSlice []string) error {
+	for _, volume := range volumeSlice {
+		err := mountVolume(rootfs, volume)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func mountVolume(rootfs, volume string) error {
 	source, target, err := volumeSplit(rootfs, volume)
 	if err != nil {
 		return err
@@ -50,7 +60,21 @@ func volumeSplit(rootfs, volume string) (source, target string, err error) {
 	return
 }
 
-func UnMountVolume(id, volume string) error {
+func UnMountVolumeSlice(id string, volumeSlice []string) error {
+	if len(volumeSlice) == 0 {
+		return nil
+	}
+
+	for _, volume := range volumeSlice {
+		err := unMountVolume(id, volume)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func unMountVolume(id, volume string) error {
 	if volume == "" {
 		return nil
 	}

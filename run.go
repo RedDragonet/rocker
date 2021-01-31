@@ -10,13 +10,13 @@ import (
 	"strings"
 )
 
-func Run(interactive, tty bool, volume string, cmdArray []string, res *subsystem.ResourceConfig, containerName string) {
+func Run(interactive, tty bool, volumeSlice, environSlice []string, cmdArray []string, res *subsystem.ResourceConfig, containerName string) {
 	containerID := stringid.GenerateRandomID()
 	if containerName == "" {
 		containerName = containerID[:12]
 	}
 
-	parent, pipeWrite := container.NewParentProcess(interactive, tty, cmdArray[0], volume, containerID, containerName)
+	parent, pipeWrite := container.NewParentProcess(interactive, tty, cmdArray[0], volumeSlice, environSlice, containerID, containerName)
 	if parent == nil {
 		log.Errorf("创建父进程失败")
 		return
@@ -28,7 +28,7 @@ func Run(interactive, tty bool, volume string, cmdArray []string, res *subsystem
 		log.Infof("父进程运行失败")
 	}
 
-	container.RecordContainerInfo(parent.Process.Pid, cmdArray, containerName, containerID, volume)
+	container.RecordContainerInfo(parent.Process.Pid, cmdArray, containerName, containerID, volumeSlice, res)
 
 	if err := sendInitCommand(cmdArray[1:], pipeWrite); err != nil {
 		exitError(err)
@@ -55,7 +55,7 @@ func Run(interactive, tty bool, volume string, cmdArray []string, res *subsystem
 	if interactive {
 		_ = parent.Wait()
 		container.DeleteContainerInfo(containerName)
-		container.UnMountVolume(containerID, volume)
+		container.UnMountVolumeSlice(containerID, volumeSlice)
 		container.DelWorkSpace(containerID)
 	}
 

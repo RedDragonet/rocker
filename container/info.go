@@ -27,9 +27,16 @@ type State struct {
 }
 
 type Config struct {
-	Cmd     []string `json:"Cmd"`
-	Image   string   `json:"Image"`
-	Volumes string   `json:"Volumes"`
+	Cmd     []string             `json:"Cmd"`
+	Image   string               `json:"Image"`
+	Volumes []string             `json:"Volumes"`
+	CGroup  CGroupResourceConfig `json:"CGroup"`
+}
+
+type CGroupResourceConfig struct {
+	MemoryLimit string `json:"MemoryLimit"`
+	CpuShare    string `json:"CpuShare"`
+	CpuSet      string `json:"CpuSet"`
 }
 
 func (s *State) String() string {

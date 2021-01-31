@@ -36,9 +36,13 @@ func runCommand() *cli.Command {
 				Name:  "d",
 				Usage: "后台运行",
 			},
-			&cli.StringFlag{
+			&cli.StringSliceFlag{
 				Name:  "v",
 				Usage: "挂载volume",
+			},
+			&cli.StringSliceFlag{
+				Name:  "e",
+				Usage: "环境变量",
 			},
 			&cli.StringFlag{
 				Name:  "name",
@@ -64,8 +68,9 @@ func runCommand() *cli.Command {
 			cmd := context.Args().Get(0)
 			interactive := context.Bool("i")
 			tty := context.Bool("t")
-			volume := context.String("v")
+			volumeSlice := context.StringSlice("v")
 			detach := context.Bool("d")
+			environSlice := context.StringSlice("e")
 			containerName := context.String("name")
 
 			if detach && interactive {
@@ -79,7 +84,7 @@ func runCommand() *cli.Command {
 			}
 
 			log.Infof("命令 %s，参数 %b,%b", cmd, interactive, tty)
-			Run(interactive, tty, volume, context.Args().Slice(), resConf, containerName)
+			Run(interactive, tty, volumeSlice, environSlice, context.Args().Slice(), resConf, containerName)
 			return nil
 		},
 	}
@@ -136,7 +141,7 @@ func execCommand() *cli.Command {
 			}
 
 			if context.Args().Len() < 2 {
-				return fmt.Errorf("Missing container name or command")
+				return fmt.Errorf("Missing container name or command %v", context.Args().Slice())
 			}
 			containerName := context.Args().Get(0)
 			var commandArray []string
@@ -148,7 +153,6 @@ func execCommand() *cli.Command {
 		},
 	}
 }
-
 
 func stopCommand() *cli.Command {
 	return &cli.Command{

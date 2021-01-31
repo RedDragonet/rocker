@@ -2,6 +2,7 @@ package container
 
 import (
 	"fmt"
+	_ "github.com/RedDragonet/rocker/nsenter"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
@@ -111,26 +112,30 @@ func readUserCommand() []string {
 	return strings.Split(msgStr, " ")
 }
 
-func NewParentProcess(interactive, tty bool, image, volume string, containerId, containerName string) (*exec.Cmd, *os.File) {
+func NewParentProcess(interactive, tty bool, image string, volumeSlice, environSlice []string, containerId, containerName string) (*exec.Cmd, *os.File) {
 	//首先调用自己的初始化命令
 	cmd := exec.Command("/proc/self/exe", "init")
-	fmt.Println(os.Getuid(), os.Getgid())
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWIPC | syscall.CLONE_NEWNET | syscall.CLONE_NEWNS | syscall.CLONE_NEWPID | syscall.CLONE_NEWUSER,
-		UidMappings: []syscall.SysProcIDMap{
-			{
-				ContainerID: 0,
-				HostID:      os.Getuid(),
-				Size:        1,
+
+	//无容器ID 为 exec命令
+	//TODO:: 重构NewParentProcess函数入参
+	if containerId != "" && containerName != "" {
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWIPC | syscall.CLONE_NEWNET | syscall.CLONE_NEWNS | syscall.CLONE_NEWPID | syscall.CLONE_NEWUSER,
+			UidMappings: []syscall.SysProcIDMap{
+				{
+					ContainerID: 0,
+					HostID:      os.Getuid(),
+					Size:        1,
+				},
 			},
-		},
-		GidMappings: []syscall.SysProcIDMap{
-			{
-				ContainerID: 0,
-				HostID:      os.Getgid(),
-				Size:        1,
+			GidMappings: []syscall.SysProcIDMap{
+				{
+					ContainerID: 0,
+					HostID:      os.Getgid(),
+					Size:        1,
+				},
 			},
-		},
+		}
 	}
 
 	//新建管道
@@ -169,21 +174,24 @@ func NewParentProcess(interactive, tty bool, image, volume string, containerId, 
 	}
 
 	//mount overlayFS
-	mntUrl, err := NewWorkSpace(image, containerId)
-	if err != nil {
-		log.Errorf("NewWorkSpace %s 失败 %v", image, err)
-		return nil, nil
+	if image != "" {
+		mntUrl, err := NewWorkSpace(image, containerId)
+		if err != nil {
+			log.Errorf("NewWorkSpace %s 失败 %v", image, err)
+			return nil, nil
+		}
+		cmd.Dir = mntUrl
 	}
 
-	if volume != "" {
-		err = MountVolume(mntUrl, volume)
+	if len(volumeSlice) > 0 {
+		err = MountVolumeSlice(cmd.Dir, volumeSlice)
 		if err != nil {
-			log.Errorf("mountVolume 失败 %v", err)
+			log.Errorf("mountVolumeSlice 失败 %v", err)
 			return nil, nil
 		}
 	}
 
-	cmd.Dir = mntUrl
+	cmd.Env = append(os.Environ(), environSlice...)
 
 	return cmd, write
 }
