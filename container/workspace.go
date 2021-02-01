@@ -3,12 +3,13 @@ package container
 import (
 	"encoding/json"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
 	"strings"
+
+	log "github.com/RedDragonet/rocker/pkg/pidlog"
 )
 
 //创建OverlayFS
@@ -281,11 +282,11 @@ func getLayersTarFile(tar string) ([]string, error) {
 	}()
 
 	if _, err := os.Stat(tarFile); err == nil {
-		log.Info("tar", "-C", fileDir, "-xf", tarFile, "manifest.json")
+		log.Info(strings.Join([]string{"tar", "-C", fileDir, "-xf", tarFile, "manifest.json"}, " "))
 		if _, err := exec.Command("tar", "-C", fileDir, "-xf", tarFile, "manifest.json").CombinedOutput(); err != nil {
 			log.Errorf("parse manifest.json %s => %s 失败 %v", tarFile, fileDir, err)
 		}
-		log.Infof("parse manifest.json %s => %s 失败 %v", tarFile, fileDir)
+		log.Infof("parse manifest.json %s => %s 成功 %v", tarFile, fileDir)
 	}
 
 	filePath := path.Join(fileDir, "manifest.json")

@@ -2,11 +2,12 @@ package main
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/RedDragonet/rocker/cgroup/subsystem"
 	"github.com/RedDragonet/rocker/container"
-	log "github.com/sirupsen/logrus"
+	log "github.com/RedDragonet/rocker/pkg/pidlog"
 	"github.com/urfave/cli/v2"
-	"os"
 )
 
 func initCommand() *cli.Command {
@@ -68,9 +69,9 @@ func runCommand() *cli.Command {
 			cmd := context.Args().Get(0)
 			interactive := context.Bool("i")
 			tty := context.Bool("t")
-			volumeSlice := context.StringSlice("v")
+			volumes := context.StringSlice("v")
 			detach := context.Bool("d")
-			environSlice := context.StringSlice("e")
+			environ := context.StringSlice("e")
 			containerName := context.String("name")
 
 			if detach && interactive {
@@ -83,8 +84,8 @@ func runCommand() *cli.Command {
 				CpuShare:    context.String("cpushare"),
 			}
 
-			log.Infof("命令 %s，参数 %b,%b", cmd, interactive, tty)
-			Run(interactive, tty, volumeSlice, environSlice, context.Args().Slice(), resConf, containerName)
+			log.Infof("命令 %s，参数 interactive=%v, tty=%v", cmd, interactive, tty)
+			Run(interactive, tty, volumes, environ, context.Args().Slice(), resConf, containerName)
 			return nil
 		},
 	}

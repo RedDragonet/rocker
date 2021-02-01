@@ -2,8 +2,6 @@ package container
 
 import (
 	"fmt"
-	_ "github.com/RedDragonet/rocker/nsenter"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -11,6 +9,9 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+
+	_ "github.com/RedDragonet/rocker/nsenter"
+	log "github.com/RedDragonet/rocker/pkg/pidlog"
 )
 
 var (
@@ -21,13 +22,13 @@ var (
 
 //容器初始化命令
 func NewInitProcess() error {
-	log.Infof("当前进程(init)ID %d", os.Getpid())
-	cmdArray := readUserCommand()
-	if cmdArray == nil || len(cmdArray) == 0 {
+	log.Infof("初始化容器")
+	argv := readUserCommand()
+	if argv == nil || len(argv) == 0 {
 		log.Errorf("读取管道参数异常")
 		return fmt.Errorf("读取管道参数异常")
 	}
-	command := cmdArray[0]
+	command := argv[0]
 	log.Infof("命令 %s", command)
 
 	err := setUpMount()
@@ -44,7 +45,7 @@ func NewInitProcess() error {
 
 	log.Infof("syscall.Exec 开始，command=%s", command)
 
-	if err := syscall.Exec(command, cmdArray[0:], os.Environ()); err != nil {
+	if err := syscall.Exec(command, argv[0:], os.Environ()); err != nil {
 		log.Errorf("syscall.Exec Error %s", err.Error())
 		return err
 	}

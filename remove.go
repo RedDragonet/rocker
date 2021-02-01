@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/RedDragonet/rocker/container"
 	_ "github.com/RedDragonet/rocker/nsenter"
-	log "github.com/sirupsen/logrus"
+	log "github.com/RedDragonet/rocker/pkg/pidlog"
 )
 
 func RemoveContainer(containerName string) {
