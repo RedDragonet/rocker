@@ -2,14 +2,15 @@ package main
 
 import (
 	"fmt"
-	"github.com/RedDragonet/rocker/cgroup"
-	"github.com/RedDragonet/rocker/cgroup/subsystem"
-	"github.com/RedDragonet/rocker/container"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/RedDragonet/rocker/cgroup"
+	"github.com/RedDragonet/rocker/cgroup/subsystem"
+	"github.com/RedDragonet/rocker/container"
+	log "github.com/RedDragonet/rocker/pkg/pidlog"
 )
 
 const ENV_EXEC_PID = "CONTAINER_PID"

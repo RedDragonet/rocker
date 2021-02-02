@@ -2,11 +2,12 @@ package subsystem
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
 	"path"
 	"strconv"
+
+	log "github.com/RedDragonet/rocker/pkg/pidlog"
 )
 
 type CpuSubSystem struct {
@@ -17,7 +18,7 @@ func (c *CpuSubSystem) Name() string {
 }
 
 func (c *CpuSubSystem) Set(cgroupPath string, res *ResourceConfig) error {
-	log.Info("设置 cgroup cpu share 开始，%s", res.CpuShare)
+	log.Infof("设置 cgroup cpu share 开始，%s", res.CpuShare)
 	if cgroupAbsolutePath, err := GetCgroupPath(c.Name(), cgroupPath, true); err == nil {
 		if res.CpuShare == "" {
 			log.Info("未配置 cgroup cpu share 跳过")

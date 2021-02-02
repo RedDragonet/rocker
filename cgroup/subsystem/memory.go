@@ -2,11 +2,12 @@ package subsystem
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
 	"path"
 	"strconv"
+
+	log "github.com/RedDragonet/rocker/pkg/pidlog"
 )
 
 type MemorySubSystem struct {

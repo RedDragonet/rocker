@@ -1,22 +1,23 @@
 package main
 
 import (
+	"os"
+	"strings"
+
 	"github.com/RedDragonet/rocker/cgroup"
 	"github.com/RedDragonet/rocker/cgroup/subsystem"
 	"github.com/RedDragonet/rocker/container"
+	log "github.com/RedDragonet/rocker/pkg/pidlog"
 	"github.com/RedDragonet/rocker/pkg/stringid"
-	log "github.com/sirupsen/logrus"
-	"os"
-	"strings"
 )
 
-func Run(interactive, tty bool, volumeSlice, environSlice []string, cmdArray []string, res *subsystem.ResourceConfig, containerName string) {
+func Run(interactive, tty bool, volumes, environ []string, argv []string, res *subsystem.ResourceConfig, containerName string) {
 	containerID := stringid.GenerateRandomID()
 	if containerName == "" {
 		containerName = containerID[:12]
 	}
 
-	parent, pipeWrite := container.NewParentProcess(interactive, tty, cmdArray[0], volumeSlice, environSlice, containerID, containerName)
+	parent, pipeWrite := container.NewParentProcess(interactive, tty, argv[0], volumes, environ, containerID, containerName)
 	if parent == nil {
 		log.Errorf("创建父进程失败")
 		return
@@ -28,9 +29,9 @@ func Run(interactive, tty bool, volumeSlice, environSlice []string, cmdArray []s
 		log.Infof("父进程运行失败")
 	}
 
-	container.RecordContainerInfo(parent.Process.Pid, cmdArray, containerName, containerID, volumeSlice, res)
+	container.RecordContainerInfo(parent.Process.Pid, argv, containerName, containerID, volumes, res)
 
-	if err := sendInitCommand(cmdArray[1:], pipeWrite); err != nil {
+	if err := sendInitCommand(argv[1:], pipeWrite); err != nil {
 		exitError(err)
 	}
 
@@ -55,7 +56,7 @@ func Run(interactive, tty bool, volumeSlice, environSlice []string, cmdArray []s
 	if interactive {
 		_ = parent.Wait()
 		container.DeleteContainerInfo(containerName)
-		container.UnMountVolumeSlice(containerID, volumeSlice)
+		container.UnMountVolumeSlice(containerID, volumes)
 		container.DelWorkSpace(containerID)
 	}
 

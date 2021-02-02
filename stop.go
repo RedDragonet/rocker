@@ -1,10 +1,11 @@
 package main
 
 import (
+	"syscall"
+
 	"github.com/RedDragonet/rocker/container"
 	_ "github.com/RedDragonet/rocker/nsenter"
-	log "github.com/sirupsen/logrus"
-	"syscall"
+	log "github.com/RedDragonet/rocker/pkg/pidlog"
 )
 
 func StopContainer(containerName string) {
@@ -19,7 +20,6 @@ func StopContainer(containerName string) {
 		log.Errorf("syscall kill %s pid %d error %v", containerName, pid, err)
 		return
 	}
-
 
 	err = container.StopContainer(containerName)
 	if err != nil {

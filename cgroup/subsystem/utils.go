@@ -3,10 +3,11 @@ package subsystem
 import (
 	"bufio"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"os"
 	"path"
 	"strings"
+
+	log "github.com/RedDragonet/rocker/pkg/pidlog"
 )
 
 //查找对应 subsystem 的挂载点
