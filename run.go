@@ -31,12 +31,6 @@ func Run(interactive, tty bool, volumes, environ []string, argv []string, res *s
 
 	container.RecordContainerInfo(parent.Process.Pid, argv, containerName, containerID, volumes, res)
 
-	if err := sendInitCommand(argv[1:], pipeWrite); err != nil {
-		exitError(err)
-	}
-
-	log.Infof("创建父运行成功，开始等待")
-	log.Infof("当前进程ID", os.Getpid())
 
 	//cgroup初始化
 	cgroupManager := cgroup.NewCgroupManager(containerID)
@@ -50,6 +44,14 @@ func Run(interactive, tty bool, volumes, environ []string, argv []string, res *s
 	if err != nil {
 		exitError(err)
 	}
+
+	if err := sendInitCommand(argv[1:], pipeWrite); err != nil {
+		exitError(err)
+	}
+
+	log.Infof("创建父运行成功，开始等待")
+	log.Infof("当前进程ID", os.Getpid())
+
 
 	//交互模式
 	//父进程等待子进程退出
