@@ -3,12 +3,13 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/RedDragonet/rocker/container"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
+
+	"github.com/RedDragonet/rocker/container"
+	log "github.com/RedDragonet/rocker/pkg/pidlog"
 )
 
 //镜像打包
@@ -123,7 +124,7 @@ func getLayers(id string) ([]string, error) {
 		return nil, err
 	}
 
-	layers := make([]string, len(lowerDirs)+1);
+	layers := make([]string, len(lowerDirs)+1)
 	for index, lowerDiffPath := range lowerDirs {
 		layers[index] = path.Dir(lowerDiffPath)
 	}

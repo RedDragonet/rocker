@@ -2,11 +2,12 @@ package main
 
 import (
 	"fmt"
-	"github.com/RedDragonet/rocker/container"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
 	"path"
+
+	"github.com/RedDragonet/rocker/container"
+	log "github.com/RedDragonet/rocker/pkg/pidlog"
 )
 
 func logContainer(containerName string, follow bool) {

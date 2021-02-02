@@ -3,12 +3,13 @@ package container
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/RedDragonet/rocker/cgroup/subsystem"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
 	"path"
 	"time"
+
+	"github.com/RedDragonet/rocker/cgroup/subsystem"
+	log "github.com/RedDragonet/rocker/pkg/pidlog"
 )
 
 func GetContainerPidByName(containerName string) (int, error) {

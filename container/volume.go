@@ -2,12 +2,13 @@ package container
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"os"
 	"os/exec"
 	"path"
 	"strings"
 	"syscall"
+
+	log "github.com/RedDragonet/rocker/pkg/pidlog"
 )
 
 func MountVolumeSlice(rootfs string, volumeSlice []string) error {

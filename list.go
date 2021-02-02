@@ -2,11 +2,12 @@ package main
 
 import (
 	"fmt"
-	"github.com/RedDragonet/rocker/container"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
 	"text/tabwriter"
+
+	"github.com/RedDragonet/rocker/container"
+	log "github.com/RedDragonet/rocker/pkg/pidlog"
 )
 
 func ListContainers() {
