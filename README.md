@@ -3,12 +3,12 @@ Docker from scratch
 
 从零开始写一个 Docker
 
-##需求 
+## 需求 
 - Linux kernel > 3.12
 - 暂不支持 Windows / MacOS 系统运行
 
 
-##编译
+## 编译
 ```bash
 #MAC 需要安装跨平台编译库musl-cross，用于编译 CGO，适用于Linux
 brew install FiloSottile/musl-cross/musl-cross
@@ -61,7 +61,7 @@ rocker exec 容器id 命令
          |                             |
          | <----------PIPE-------------+
          |                             |
-	将Clone的子进程ID                    |
+    将Clone的子进程ID                    |
     加入容器的CGroup中                   |
          | +----------PIPE------------>|
          |                             |
