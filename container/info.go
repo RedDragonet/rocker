@@ -27,10 +27,11 @@ type State struct {
 }
 
 type Config struct {
-	Cmd     []string             `json:"Cmd"`
-	Image   string               `json:"Image"`
-	Volumes []string             `json:"Volumes"`
-	CGroup  CGroupResourceConfig `json:"CGroup"`
+	Cmd         []string             `json:"Cmd"`
+	Image       string               `json:"Image"`
+	Volumes     []string             `json:"Volumes"`
+	CGroup      CGroupResourceConfig `json:"CGroup"`
+	PortMapping []string             `json:"portmapping"`
 }
 
 type CGroupResourceConfig struct {

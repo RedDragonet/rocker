@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/RedDragonet/rocker/network"
 	"os"
 
 	"github.com/RedDragonet/rocker/cgroup/subsystem"
@@ -42,6 +43,14 @@ func runCommand() *cli.Command {
 				Usage: "挂载volume",
 			},
 			&cli.StringSliceFlag{
+				Name:  "p",
+				Usage: "端口映射",
+			},
+			&cli.StringFlag{
+				Name:  "net",
+				Usage: "网卡",
+			},
+			&cli.StringSliceFlag{
 				Name:  "e",
 				Usage: "环境变量",
 			},
@@ -70,9 +79,11 @@ func runCommand() *cli.Command {
 			interactive := context.Bool("i")
 			tty := context.Bool("t")
 			volumes := context.StringSlice("v")
+			portMapping := context.StringSlice("p")
 			detach := context.Bool("d")
 			environ := context.StringSlice("e")
 			containerName := context.String("name")
+			net := context.String("net")
 
 			if detach && interactive {
 				return fmt.Errorf("交互模式，与后台运行模式不能共存")
@@ -85,7 +96,7 @@ func runCommand() *cli.Command {
 			}
 
 			log.Infof("命令 %s，参数 interactive=%v, tty=%v", cmd, interactive, tty)
-			Run(interactive, tty, volumes, environ, context.Args().Slice(), resConf, containerName)
+			Run(interactive, tty, net, volumes, portMapping, environ, context.Args().Slice(), resConf, containerName)
 			return nil
 		},
 	}
@@ -173,6 +184,66 @@ func removeCommand() *cli.Command {
 		Action: func(context *cli.Context) error {
 			RemoveContainer(context.Args().Get(0))
 			return nil
+		},
+	}
+}
+
+func networkCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "network",
+		Usage: "网络",
+		Subcommands: []*cli.Command{
+			{
+				Name:  "create",
+				Usage: "创建网卡",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "driver",
+						Usage: "driver",
+					},
+					&cli.StringFlag{
+						Name:  "subnet",
+						Usage: "子网IP",
+					},
+				},
+				Action: func(context *cli.Context) error {
+					if context.Args().Len() < 1 {
+						return fmt.Errorf("参数缺失")
+					}
+					network.Init()
+					//创建网络设备
+					err := network.CreateNetwork(context.String("driver"), context.String("subnet"), context.Args().Get(0))
+					if err != nil {
+						return fmt.Errorf("创建网络失败: %+v", err)
+					}
+					return nil
+				},
+			},
+			{
+				Name:  "list",
+				Usage: "列出所有已经创建的网络设备",
+				Action: func(context *cli.Context) error {
+					network.Init()
+
+					network.ListNetwork()
+					return nil
+				},
+			},
+			{
+				Name:  "remove",
+				Usage: "移除网络设备",
+				Action: func(context *cli.Context) error {
+					if context.Args().Len() < 1 {
+						return fmt.Errorf("参数缺失")
+					}
+					network.Init()
+					err := network.DeleteNetwork(context.Args().Get(0))
+					if err != nil {
+						return fmt.Errorf("删除 network 失败: %+v", err)
+					}
+					return nil
+				},
+			},
 		},
 	}
 }

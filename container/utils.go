@@ -59,7 +59,7 @@ func RemoveContainer(containerName string) error {
 	return DeleteContainerInfo(containerName)
 }
 
-func RecordContainerInfo(containerPID int, commandArray []string, containerName, id string, volumeSlice []string, res *subsystem.ResourceConfig) (string, error) {
+func RecordContainerInfo(containerPID int, commandArray []string, containerName, id string, volumeSlice, portMapping []string, res *subsystem.ResourceConfig) (string, error) {
 	containerInfo := &ContainerInfo{
 		ID: id,
 		State: State{
@@ -75,6 +75,7 @@ func RecordContainerInfo(containerPID int, commandArray []string, containerName,
 				CpuShare:    res.CpuShare,
 				CpuSet:      res.CpuSet,
 			},
+			PortMapping: portMapping,
 		},
 		Created: time.Now(),
 		Name:    containerName,

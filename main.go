@@ -22,6 +22,7 @@ func main() {
 		execCommand(),
 		stopCommand(),
 		removeCommand(),
+		networkCommand(),
 	}
 
 	if err := app.Run(os.Args); err != nil {

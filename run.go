@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/RedDragonet/rocker/network"
 	"os"
 	"strings"
 
@@ -11,7 +12,7 @@ import (
 	"github.com/RedDragonet/rocker/pkg/stringid"
 )
 
-func Run(interactive, tty bool, volumes, environ []string, argv []string, res *subsystem.ResourceConfig, containerName string) {
+func Run(interactive, tty bool, net string, volumes, portMapping, environ, argv []string, res *subsystem.ResourceConfig, containerName string) {
 	containerID := stringid.GenerateRandomID()
 	if containerName == "" {
 		containerName = containerID[:12]
@@ -29,8 +30,7 @@ func Run(interactive, tty bool, volumes, environ []string, argv []string, res *s
 		log.Infof("父进程运行失败")
 	}
 
-	container.RecordContainerInfo(parent.Process.Pid, argv, containerName, containerID, volumes, res)
-
+	container.RecordContainerInfo(parent.Process.Pid, argv, containerName, containerID, volumes, portMapping, res)
 
 	//cgroup初始化
 	cgroupManager := cgroup.NewCgroupManager(containerID)
@@ -45,13 +45,31 @@ func Run(interactive, tty bool, volumes, environ []string, argv []string, res *s
 		exitError(err)
 	}
 
+	if net != "" {
+		// 配置网络
+		network.Init()
+		containerInfo := &container.ContainerInfo{
+			ID: containerID,
+			State: container.State{
+				Pid: parent.Process.Pid,
+			},
+			Name: containerName,
+			Config: container.Config{
+				PortMapping: portMapping,
+			},
+		}
+		if err := network.Connect(net, containerInfo); err != nil {
+			log.Errorf("Error Connect Network %v", err)
+			return
+		}
+	}
+
 	if err := sendInitCommand(argv[1:], pipeWrite); err != nil {
 		exitError(err)
 	}
 
 	log.Infof("创建父运行成功，开始等待")
 	log.Infof("当前进程ID", os.Getpid())
-
 
 	//交互模式
 	//父进程等待子进程退出
