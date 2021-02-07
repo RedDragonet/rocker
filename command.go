@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/RedDragonet/rocker/image"
 	"github.com/RedDragonet/rocker/network"
 	"os"
 
@@ -240,6 +241,66 @@ func networkCommand() *cli.Command {
 					err := network.DeleteNetwork(context.Args().Get(0))
 					if err != nil {
 						return fmt.Errorf("删除 network 失败: %+v", err)
+					}
+					return nil
+				},
+			},
+		},
+	}
+}
+
+func pullCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "pull",
+		Usage: `镜像拉取`,
+		Action: func(context *cli.Context) error {
+			if context.Args().Len() < 1 {
+				return fmt.Errorf("缺少镜像名称")
+			}
+			image.PullImage(context.Args().Get(0))
+			return nil
+		},
+	}
+}
+
+func imagesCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "images",
+		Usage: "镜像列表",
+		Action: func(context *cli.Context) error {
+			image.Init()
+
+			image.ListImage()
+			return nil
+		},
+	}
+}
+func imageCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "image",
+		Usage: "镜像",
+		Subcommands: []*cli.Command{
+			{
+				Name:  "list",
+				Usage: "列出所有镜像",
+				Action: func(context *cli.Context) error {
+					image.Init()
+
+					image.ListImage()
+					return nil
+				},
+			},
+			{
+				Name:  "remove",
+				Usage: "移除镜像",
+				Action: func(context *cli.Context) error {
+					if context.Args().Len() < 1 {
+						return fmt.Errorf("参数缺失")
+					}
+					image.Init()
+					err := image.DeleteImage(context.Args().Get(0))
+					if err != nil {
+						return fmt.Errorf("删除 镜像 失败: %+v", err)
 					}
 					return nil
 				},

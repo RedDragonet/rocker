@@ -23,6 +23,9 @@ func main() {
 		stopCommand(),
 		removeCommand(),
 		networkCommand(),
+		pullCommand(),
+		imageCommand(),
+		imagesCommand(),
 	}
 
 	if err := app.Run(os.Args); err != nil {

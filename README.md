@@ -17,11 +17,30 @@ brew install FiloSottile/musl-cross/musl-cross
 - make build 本地编译
 - make build2remote 本地编译并发送到远程主机，远程主机IP配置在 makefile 中
     
+## 配置
+
+```bash
+# 如需使用端口转发功能 (rocker run  -p 80:80)，需开启如下配置
+sysctl -w net.ipv4.conf.all.forwarding=1
+sysctl -w net.ipv4.conf.all.route_localnet=1
+```
 
 
 ## 新增功能
+#### 1. PULL
+从 Docker-registry PULL 镜像
+默认采用 [中科大镜像](https://ustc-edu-cn.mirror.aliyuncs.com)
+暂不支持需要 auth 的仓库
 
-#### 1. UTS  
+```bash
+rocker pull nginx 
+# 或指定指定 registry
+rocker pull http://hub-mirror.c.163.com/nginx
+```
+
+
+
+#### 2. UTS
 支持 [OverlayFS](https://www.kernel.org/doc/html/latest/filesystems/overlayfs.html) 
 
 ```bash
@@ -41,7 +60,7 @@ brew install FiloSottile/musl-cross/musl-cross
 |   |-- merged
 ```
 
-#### 2. NSenter
+#### 3. NSenter
 支持 CGroup
 
 

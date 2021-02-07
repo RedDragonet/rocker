@@ -125,7 +125,7 @@ func Init() error {
 		}
 
 		if err := nw.load(nwPath); err != nil {
-			log.Errorf("遍历 Newwork 失败: %s", err)
+			log.Errorf("遍历 Network 失败: %s", err)
 		}
 
 		networks[nwName] = nw
