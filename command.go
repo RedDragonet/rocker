@@ -2,14 +2,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/RedDragonet/rocker/image"
-	"github.com/RedDragonet/rocker/network"
-	"os"
-
 	"github.com/RedDragonet/rocker/cgroup/subsystem"
 	"github.com/RedDragonet/rocker/container"
+	"github.com/RedDragonet/rocker/image"
+	"github.com/RedDragonet/rocker/network"
 	log "github.com/RedDragonet/rocker/pkg/pidlog"
 	"github.com/urfave/cli/v2"
+	"os"
 )
 
 func initCommand() *cli.Command {
@@ -17,7 +16,7 @@ func initCommand() *cli.Command {
 		Name:  "init",
 		Usage: `初始化容器，禁止外部调用`,
 		Action: func(context *cli.Context) error {
-			return container.NewInitProcess()
+			return container.NewInitProcess(context.Args().Slice())
 		},
 	}
 }
@@ -116,7 +115,7 @@ func commitCommand() *cli.Command {
 func listCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "ps",
-		Usage: `列出所有的镜像`,
+		Usage: `列出所有的容器`,
 		Action: func(context *cli.Context) error {
 			ListContainers()
 			return nil
@@ -257,7 +256,10 @@ func pullCommand() *cli.Command {
 			if context.Args().Len() < 1 {
 				return fmt.Errorf("缺少镜像名称")
 			}
-			image.PullImage(context.Args().Get(0))
+			err := image.Pull(context.Args().Get(0))
+			if err != nil {
+				log.Errorf("镜像拉取失败 %v",err)
+			}
 			return nil
 		},
 	}
@@ -298,7 +300,7 @@ func imageCommand() *cli.Command {
 						return fmt.Errorf("参数缺失")
 					}
 					image.Init()
-					err := image.DeleteImage(context.Args().Get(0))
+					err := image.Delete(context.Args().Get(0))
 					if err != nil {
 						return fmt.Errorf("删除 镜像 失败: %+v", err)
 					}

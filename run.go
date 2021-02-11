@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/RedDragonet/rocker/image"
 	"github.com/RedDragonet/rocker/network"
 	"os"
 	"strings"
@@ -18,13 +19,14 @@ func Run(interactive, tty bool, net string, volumes, portMapping, environ, argv 
 		containerName = containerID[:12]
 	}
 
+	image.Init()
 	parent, pipeWrite := container.NewParentProcess(interactive, tty, argv[0], volumes, environ, containerID, containerName)
 	if parent == nil {
 		log.Errorf("创建父进程失败")
 		return
 	}
 
-	log.Infof("当前进程ID", os.Getpid())
+	log.Infof("当前进程ID %d ", os.Getpid())
 
 	if err := parent.Start(); err != nil {
 		log.Infof("父进程运行失败")
@@ -69,7 +71,7 @@ func Run(interactive, tty bool, net string, volumes, portMapping, environ, argv 
 	}
 
 	log.Infof("创建父运行成功，开始等待")
-	log.Infof("当前进程ID", os.Getpid())
+	log.Infof("当前进程ID %d ", os.Getpid())
 
 	//交互模式
 	//父进程等待子进程退出
@@ -77,6 +79,7 @@ func Run(interactive, tty bool, net string, volumes, portMapping, environ, argv 
 		_ = parent.Wait()
 		container.DeleteContainerInfo(containerName)
 		container.UnMountVolumeSlice(containerID, volumes)
+		container.DelDefaultDevice(containerID)
 		container.DelWorkSpace(containerID)
 	}
 

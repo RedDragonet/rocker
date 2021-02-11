@@ -21,7 +21,7 @@ func (c *CpuSetSubSystem) Set(cgroupPath string, res *ResourceConfig) error {
 	log.Infof("设置 cgroup cpu set 开始, %s,%b", res.CpuSet)
 	if cgroupAbsolutePath, err := GetCgroupPath(c.Name(), cgroupPath, true); err == nil {
 		if res.CpuSet == "" {
-			log.Info("未配置 cgroup cpu set 跳过")
+			log.Debugf("未配置 cgroup cpu set 跳过")
 			return nil
 		}
 		if err := ioutil.WriteFile(path.Join(cgroupAbsolutePath, "cpuset.cpus"), []byte(res.CpuSet), 0644); err != nil {
@@ -32,7 +32,7 @@ func (c *CpuSetSubSystem) Set(cgroupPath string, res *ResourceConfig) error {
 			if err := ioutil.WriteFile(path.Join(cgroupAbsolutePath, "cpuset.mems"), []byte("0"), 0644); err != nil {
 				log.Errorf("设置 cgroup cpu set cpuset.mems 失败 %v", err)
 			}
-			log.Info("设置 cgroup cpu set 成功")
+			log.Debugf("设置 cgroup cpu set 成功")
 			return nil
 		}
 	} else {
@@ -43,7 +43,7 @@ func (c *CpuSetSubSystem) Set(cgroupPath string, res *ResourceConfig) error {
 
 func (c *CpuSetSubSystem) Apply(cgroupPath string, pid int, res *ResourceConfig) error {
 	if res.CpuSet == "" {
-		log.Info("未配置 cgroup cpu set 跳过")
+		log.Debugf("未配置 cgroup cpu set 跳过")
 		return nil
 	}
 	log.Infof("写入 cgroup cpu set pid=%d 开始", pid)
@@ -52,7 +52,7 @@ func (c *CpuSetSubSystem) Apply(cgroupPath string, pid int, res *ResourceConfig)
 			log.Errorf("写入 cgroup cpu set pid=%d 失败 %v", pid, err)
 			return fmt.Errorf("写入 cgroup cpu set pid=%d 失败 %v", pid, err)
 		} else {
-			log.Infof("写入 cgroup cpu set pid=%d 成功", pid)
+			log.Debugf("写入 cgroup cpu set pid=%d 成功", pid)
 			return nil
 		}
 	} else {

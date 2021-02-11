@@ -91,6 +91,6 @@ func unMountVolume(id, volume string) error {
 		return err
 	}
 
-	log.Info("umount volume %s done. %v", volume, err)
+	log.Debugf("umount volume %s done. %v", volume, err)
 	return nil
 }
