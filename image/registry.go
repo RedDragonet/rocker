@@ -191,12 +191,47 @@ func (r *Registry) DownloadLayers(layerDbPath string) error {
 			fmt.Printf("\r%s: 文件层已存在\n", layerDigest[:13])
 			continue
 		}
-		err = DownloadFile(layerDigest, filePath, layerBlobsUrl)
+		err = DownloadFile(layerDigest, filePath, layerBlobsUrl, true)
 		if err != nil {
 			log.Errorf("DownloadFile error %v", err)
 		}
 
 	}
+	return nil
+}
+
+//3.3 Image Layer
+//第五步 下载镜像信息
+func (r *Registry) DownloadImageContent(defaultImageContentPath string) error {
+
+	/**
+	|-- content
+	|   `-- sha256
+	|       |-- 05a68b853412e7487893459e565de4b119b8ebf99a15a598bce9dea0ce334411
+	*/
+	sha256Path := path.Join(defaultImageContentPath, "sha256")
+	if _, err := os.Stat(sha256Path); os.IsNotExist(err) {
+		os.MkdirAll(sha256Path, 0700)
+	}
+
+	err := os.MkdirAll(sha256Path, 0700)
+	if err != nil {
+		log.Errorf("创建下载目录失败 %v", err)
+	}
+
+	layerBlobsUrl := fmt.Sprintf("%s/v2/%s/blobs/%s", r.Domain, r.ImagePath, r.ImageLayerInfo.Config.Digest)
+
+	digest := strings.TrimPrefix(r.ImageLayerInfo.Config.Digest, "sha256:")
+	filePath := path.Join(sha256Path, digest)
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		err = DownloadFile(digest, filePath, layerBlobsUrl, false)
+		if err != nil {
+			log.Errorf("DownloadFile error %v", err)
+		}
+	}
+
+	fmt.Printf("下载完成: %s\n", digest)
+
 	return nil
 }
 

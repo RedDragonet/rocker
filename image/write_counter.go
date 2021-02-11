@@ -24,7 +24,7 @@ func (wc WriteCounter) PrintProgress() {
 	fmt.Printf("\r%s: 下载中... %s", wc.LayerDigest[:13], humanSize(wc.Total))
 }
 
-func DownloadFile(layerDigest, filepath string, url string) error {
+func DownloadFile(layerDigest, filepath string, url string, progress bool) error {
 
 	// Create the file, but give it a tmp file extension, this means we won't overwrite a
 	// file until it's downloaded, but we'll remove the tmp extension once downloaded.
@@ -43,9 +43,17 @@ func DownloadFile(layerDigest, filepath string, url string) error {
 
 	// Create our progress reporter and pass it to be used alongside our writer
 	counter := &WriteCounter{LayerDigest: layerDigest}
-	if _, err = io.Copy(out, io.TeeReader(resp.Body, counter)); err != nil {
-		out.Close()
-		return err
+
+	if progress {
+		if _, err = io.Copy(out, io.TeeReader(resp.Body, counter)); err != nil {
+			out.Close()
+			return err
+		}
+	} else {
+		if _, err = io.Copy(out, resp.Body); err != nil {
+			out.Close()
+			return err
+		}
 	}
 
 	// The progress use the same line so print a new line once it's finished downloading

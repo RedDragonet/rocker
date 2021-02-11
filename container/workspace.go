@@ -1,8 +1,8 @@
 package container
 
 import (
-	"encoding/json"
 	"fmt"
+	image2 "github.com/RedDragonet/rocker/image"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -25,7 +25,7 @@ const (
 func init() {
 	//创建 home 文件夹
 	if _, err := os.Stat(home); os.IsNotExist(err) {
-		_ = os.MkdirAll(home, 0700)
+		_ = os.MkdirAll(home, 0755)
 	}
 }
 
@@ -34,21 +34,36 @@ func init() {
 func NewWorkSpace(image, id string) (string, error) {
 	//overlayFS mount
 	//支持将打包的容器 恢复
+	i := image2.Get(image)
+	if i == nil {
+		//pull image
+		cmd := exec.Command("/proc/self/exe", "pull", image)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Run()
+
+		image2.Init()
+		i = image2.Get(image)
+	}
+
+	if i == nil {
+		return "", fmt.Errorf("镜像获取失败")
+	}
 
 	//rootfs := strings.Split(rootfsPath, ".")[0]
-	layers, err := getLayersTarFile(image)
+	layers, err := getLayersTarFile(i)
 	if err != nil {
 		return "", err
 	}
 
 	//从底层往上，创建每一层
-	err = LoopExtract(layers, image)
+	err = LoopExtract(layers, i)
 	if err != nil {
 		return "", err
 	}
 
 	//创建容器层
-	err = create(id, layers[len(layers)-1], "")
+	err = create(id, layers[len(layers)-1], nil)
 	if err != nil {
 		return "", err
 	}
@@ -58,15 +73,17 @@ func NewWorkSpace(image, id string) (string, error) {
 }
 
 //循环解压image tar包
-func LoopExtract(layers []string, image string) error {
+func LoopExtract(layers []string, i *image2.Image) error {
 	var err error
 	for index, layer := range layers {
-		log.Infof("Extract Layer %s", layer)
+		log.Debugf("Extract Layer %s", layer)
+
+		layer = strings.TrimPrefix(layer, "sha256:")
 		if index > 0 {
 			//上一级的layer
-			err = create(layer, layers[index-1], image)
+			err = create(layer, layers[index-1], i)
 		} else {
-			err = create(layer, "", image)
+			err = create(layer, "", i)
 		}
 
 		if err != nil {
@@ -81,6 +98,11 @@ func DelWorkSpace(id string) error {
 	dir := path.Join(home, id)
 
 	mergedDirPath := path.Join(dir, mergedDirName)
+
+	//if _, err := exec.Command("umount", path.Join(mergedDirPath, "/proc")).CombinedOutput(); err != nil {
+	//	log.Errorf("umount  /proc failed. %v", err)
+	//}
+
 	if _, err := exec.Command("umount", mergedDirPath).CombinedOutput(); err != nil {
 		log.Errorf("umount overlayFS %s failed. %v", mergedDirPath, err)
 		return err
@@ -123,25 +145,25 @@ func get(id string) (string, error) {
 	return mergeDir, nil
 }
 
-func create(id, parent, image string) error {
-	log.Infof("【overflowFS】创建目录 %s %s", id, parent)
+func create(id, parent string, i *image2.Image) error {
+	log.Debugf("【overflowFS】创建目录 %s %s", id, parent)
 
 	var retErr error
 	dir := path.Join(home, id)
 
 	if exist, _ := os.Stat(dir); exist != nil {
-		log.Infof("【overflowFS】目录存在跳过 %s %s", id, parent)
+		log.Debugf("【overflowFS】目录存在跳过 %s %s", id, parent)
 		return nil
 	}
 	//失败时
 	defer func() {
 		if retErr != nil {
-			log.Infof("【overflowFS】失败 %s %s", id, parent)
+			log.Errorf("【overflowFS】失败 %s %s", id, parent)
 			_ = os.RemoveAll(dir)
 		}
 	}()
 
-	retErr = os.Mkdir(dir, 0700)
+	retErr = os.Mkdir(dir, 0755)
 	if retErr != nil {
 		return retErr
 	}
@@ -150,28 +172,28 @@ func create(id, parent, image string) error {
 	workDirPath := path.Join(dir, workDirName)
 	mergedDirPath := path.Join(dir, mergedDirName)
 
-	retErr = os.Mkdir(diffDirPath, 0700)
+	retErr = os.Mkdir(diffDirPath, 0755)
 	if retErr != nil {
 		log.Errorf("【overflowFS】创建diff目录失败 %s %s %s %v", id, parent, diffDirPath, retErr)
 		return retErr
 	}
 
-	retErr = os.Mkdir(workDirPath, 0700)
+	retErr = os.Mkdir(workDirPath, 0755)
 	if retErr != nil {
 		log.Errorf("【overflowFS】创建work目录失败 %s %%s %s %v", id, parent, workDirPath, retErr)
 		return retErr
 	}
 
-	retErr = os.Mkdir(mergedDirPath, 0700)
+	retErr = os.Mkdir(mergedDirPath, 0755)
 	if retErr != nil {
 		log.Errorf("【overflowFS】创建merge目录失败 %s %s %s %v", id, parent, mergedDirPath, retErr)
 		return retErr
 	}
 
 	//非容器层
-	if image != "" {
+	if i != nil {
 		//解压对应层的文件
-		retErr = ApplyDiff(id, image)
+		retErr = ApplyDiff(id, i)
 		if retErr != nil {
 			return retErr
 		}
@@ -194,26 +216,20 @@ func create(id, parent, image string) error {
 }
 
 //将每层的文件压缩比解压到对应的Diff文件夹
-func ApplyDiff(id, image string) error {
+func ApplyDiff(id string, i *image2.Image) error {
 	var retErr error
-	home := GetHome()
+	//home := GetHome()
 	dirPath := dirPath(id)
 	diffDirPath := getDiffPath(id)
-	log.Infof("解压 layer.tar %s %s %s 开始", id, image, dirPath)
+	log.Debugf("解压 layer.tar %s %s %s 开始", id, i.Repository, dirPath)
 
-	if _, retErr = exec.Command("tar", "-xf", image+".tar", "-C", home, path.Join(id, "layer.tar")).CombinedOutput(); retErr != nil {
-		log.Info("tar", "-xf", image+".tar", "-C", home, path.Join(id, "layer.tar"))
-		log.Errorf("解压 %s %s => %s 失败 %v", image+".tar", dirPath, "layer.tar", retErr)
+	// 通过 Pull 方式
+	if _, retErr = exec.Command("tar", "-zxf", path.Join(i.LayerPath(id), "tar-split.json.gz"), "-C", diffDirPath).CombinedOutput(); retErr != nil {
+		log.Errorf("tar", "-zxf", path.Join(i.LayerPath(id), "tar-split.json.gz"), "-C", diffDirPath)
 		return retErr
 	}
 
-	if _, retErr = exec.Command("tar", "-xf", path.Join(dirPath, "layer.tar"), "-C", diffDirPath, ".").CombinedOutput(); retErr != nil {
-		log.Info("tar", "-xf", path.Join(dirPath, "layer.tar"), "-C", diffDirPath, ".")
-		log.Errorf("解压 layer.tar %s => %s 失败 %v", "layer.tar", diffDirPath, retErr)
-		return retErr
-	}
-
-	log.Infof("解压 layer.tar %s => %s 成功", path.Join(dirPath, "layer.tar"), diffDirPath)
+	log.Debugf("解压 layer.tar %s => %s 成功", path.Join(dirPath, "layer.tar"), diffDirPath)
 
 	return retErr
 }
@@ -272,47 +288,23 @@ func GetDiffPath(id string) string {
 }
 
 //解析当前容器描述文件
-func getLayersTarFile(tar string) ([]string, error) {
-	fileDir := path.Join("/tmp/rocker/parse/", tar)
-	tarFile := tar + ".tar"
-
-	_ = os.MkdirAll(fileDir, 0700)
-	defer func() {
-		_ = os.RemoveAll(fileDir)
-	}()
-
-	if _, err := os.Stat(tarFile); err == nil {
-		log.Info(strings.Join([]string{"tar", "-C", fileDir, "-xf", tarFile, "manifest.json"}, " "))
-		if _, err := exec.Command("tar", "-C", fileDir, "-xf", tarFile, "manifest.json").CombinedOutput(); err != nil {
-			log.Errorf("parse manifest.json %s => %s 失败 %v", tarFile, fileDir, err)
-		}
-		log.Infof("parse manifest.json %s => %s 成功 %v", tarFile, fileDir)
+func getLayersTarFile(i *image2.Image) ([]string, error) {
+	if i.ImageLayerInfo == nil {
+		return nil, fmt.Errorf("ImageLayerInfo is nil")
 	}
 
-	filePath := path.Join(fileDir, "manifest.json")
-
-	//[{"Layers":["12sbv","qe123","123sdf"]}]
-	data, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		return nil, err
+	layers := make([]string, len(i.ImageLayerInfo.Layers))
+	for k, v := range i.ImageLayerInfo.Layers {
+		layers[k] = strings.TrimPrefix(v.Digest, "sha256:")
 	}
 
-	//这里暂时不引入第三方 Json 包
-	jsonDataList := make([]json.RawMessage, 0)
-	if err := json.Unmarshal([]byte(data), &jsonDataList); err != nil {
-		log.Errorf("json Unmarshal %s %v", data, err)
-		return nil, err
-	}
+	reverse(layers)
 
-	jsonData := make(map[string][]string)
-	if err := json.Unmarshal(jsonDataList[0], &jsonData); err != nil {
-		log.Errorf("json Unmarshal %s %v", jsonDataList[0], err)
-		return nil, err
+	return layers, nil
+}
+func reverse(ss []string) {
+	last := len(ss) - 1
+	for i := 0; i < len(ss)/2; i++ {
+		ss[i], ss[last-i] = ss[last-i], ss[i]
 	}
-
-	if layers, ok := jsonData["Layers"]; ok {
-		return layers, nil
-	}
-
-	return nil, fmt.Errorf("未找到的 image %s 配置信息", "")
 }

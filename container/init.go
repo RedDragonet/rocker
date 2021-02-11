@@ -2,11 +2,14 @@ package container
 
 import (
 	"fmt"
+	image2 "github.com/RedDragonet/rocker/image"
+	"github.com/syndtr/gocapability/capability"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 
@@ -21,18 +24,36 @@ var (
 )
 
 //容器初始化命令
-func NewInitProcess() error {
+func NewInitProcess(defaultArgv []string) error {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
 	log.Infof("初始化容器")
 	argv := readUserCommand()
-	if argv == nil || len(argv) == 0 {
-		log.Errorf("读取管道参数异常")
-		return fmt.Errorf("读取管道参数异常")
+	if argv == nil || len(argv) == 0 || argv[0] == "" {
+		//存在默认参数
+		if len(defaultArgv) > 0 {
+			//覆盖
+			argv = defaultArgv
+		} else {
+			log.Errorf("读取管道参数异常")
+			return fmt.Errorf("读取管道参数异常")
+		}
 	}
-	command := argv[0]
-	log.Infof("命令 %s", command)
 
+	command := argv[0]
+	log.Infof("命令 %s %v", command, argv)
+
+	//Init 挂载点
 	err := setUpMount()
 	if err != nil {
+		return err
+	}
+
+	//设置默认权限
+	err = applyCaps()
+	if err != nil {
+		log.Errorf("权限设置异常", err)
 		return err
 	}
 
@@ -52,6 +73,31 @@ func NewInitProcess() error {
 	return nil
 }
 
+//设置默认权限
+func applyCaps() error {
+	pid, err := capability.NewPid2(0)
+	if err != nil {
+		return err
+	}
+
+	allCapabilityTypes := capability.CAPS | capability.BOUNDS | capability.AMBS
+	defaultCap, err := DefaultCapabilities()
+	if err != nil {
+		return err
+	}
+
+	pid.Clear(allCapabilityTypes)
+	pid.Set(capability.BOUNDS, defaultCap...)
+	pid.Set(capability.PERMITTED, defaultCap...)
+	pid.Set(capability.INHERITABLE, defaultCap...)
+	pid.Set(capability.EFFECTIVE, defaultCap...)
+
+	//k8s 不支持 CAP_AMBIENT
+	pid.Clear(capability.AMBIENT)
+
+	return pid.Apply(allCapabilityTypes)
+}
+
 /**
 Init 挂载点
 */
@@ -67,7 +113,36 @@ func setUpMount() error {
 	//由于挂载 Proc 需要 ROOT 权限
 	//由于设置了 CLONE_NEWUSER，运行用户无 ROOT 权限
 	//需要将 CLONE_NEWPID 隔离的进程信息挂载到 newrootfs 中
-	err = mountProc(pwd)
+	//mount proc
+	defaultMountFlags := syscall.MS_NOEXEC | syscall.MS_NOSUID | syscall.MS_NODEV
+
+	//挂载 Proc 目录
+	log.Infof("挂载 Proc 目录")
+	err = syscall.Mount("proc", path.Join(pwd, "/proc"), "proc", uintptr(defaultMountFlags), "")
+	if err != nil {
+		return err
+	}
+
+	//err = syscall.Mount("tmpfs", path.Join(pwd, "/dev"), "tmpfs", syscall.MS_NOSUID|syscall.MS_STRICTATIME, "mode=755")
+	//if err != nil {
+	//	return err
+	//}
+
+	//挂载 devpts
+	//err = syscall.Mount("devpts", path.Join(pwd, "/dev/pts"), "devpts", uintptr(defaultMountFlags), "")
+	//if err != nil {
+	//	log.Errorf("挂载 devpts 失败", err)
+	//	return err
+	//}
+
+	//创建默认设备
+	err = createDefaultDevice(pwd)
+	if err != nil {
+		return err
+	}
+
+	//创建默认设备
+	err = setupDevSymlinks(pwd)
 	if err != nil {
 		return err
 	}
@@ -77,25 +152,7 @@ func setUpMount() error {
 		return err
 	}
 
-	//挂载 devpts
-	//err = syscall.Mount("devpts", "/dev/pts", "devpts", uintptr(defaultMountFlags), "")
-	//if err != nil {
-	//	log.Errorf("挂载 devpts 失败", err)
-	//	return err
-	//}
-
-	//syscall.Mount("tmpfs", "/dev", "tmpfs", syscall.MS_NOSUID|syscall.MS_STRICTATIME, "mode=755")
-
 	return nil
-}
-
-func mountProc(pwd string) error {
-	//mount proc
-	defaultMountFlags := syscall.MS_NOEXEC | syscall.MS_NOSUID | syscall.MS_NODEV
-
-	//挂载 Proc 目录
-	log.Infof("挂载 Proc 目录")
-	return syscall.Mount("proc", path.Join(pwd, "/proc"), "proc", uintptr(defaultMountFlags), "")
 }
 
 func readUserCommand() []string {
@@ -126,16 +183,21 @@ func NewParentProcess(interactive, tty bool, image string, volumeSlice, environS
 				{
 					ContainerID: 0,
 					HostID:      os.Getuid(),
-					Size:        1,
+					//TODO:: 新增用户id从1001开始，设置为1100允许容器添加99个user
+					//Docker中 这个值为 unsigned int32 最大值
+					//cat /proc/$$/uid_map
+					//此次对于 User Namespace到理解还不够
+					Size: 1100,
 				},
 			},
 			GidMappings: []syscall.SysProcIDMap{
 				{
 					ContainerID: 0,
 					HostID:      os.Getgid(),
-					Size:        1,
+					Size:        1100,
 				},
 			},
+			GidMappingsEnableSetgroups: true,
 		}
 	}
 
@@ -182,6 +244,19 @@ func NewParentProcess(interactive, tty bool, image string, volumeSlice, environS
 			return nil, nil
 		}
 		cmd.Dir = mntUrl
+
+		i := image2.Get(image)
+		r, err := i.GetRuntime()
+		if err != nil {
+			log.Errorf("GetRuntime %s 失败 %v", image, err)
+			return nil, nil
+		}
+
+		//镜像原始配置 ENV
+		environSlice = append(environSlice, r.ContainerConfig.Env...)
+
+		//镜像默认CMD
+		cmd.Args = append(cmd.Args, r.Config.Cmd...)
 	}
 
 	if len(volumeSlice) > 0 {
@@ -203,11 +278,11 @@ func pivotRoot(rootfs string) error {
 	   shared propagation (which would cause pivot_root() to
 	   return an error), and prevent propagation of mount
 	   events to the initial mount namespace */
-	if err := syscall.Mount("", "/", "", syscall.MS_PRIVATE|syscall.MS_REC, ""); err != nil {
-		log.Errorf("mount MS_PRIVATE  error ", err)
-		os.Exit(0)
-		return err
-	}
+	//if err := syscall.Mount("", "/", "", syscall.MS_PRIVATE|syscall.MS_REC, ""); err != nil {
+	//	log.Errorf("mount MS_PRIVATE  error ", err)
+	//	os.Exit(0)
+	//	return err
+	//}
 
 	//将修改 rootfs 挂载点，将rootfs 挂载到当前 mount namespace
 	//满足 pivot_root 要求，old root 和 new root 需要在不同的 file system

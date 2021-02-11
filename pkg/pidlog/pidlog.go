@@ -7,6 +7,13 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+func init() {
+	_, ok := os.LookupEnv("LOG_LEVEL")
+	// LOG_LEVEL not set, let's default to debug
+	if !ok {
+		log.SetLevel(log.DebugLevel)
+	}
+}
 func formatWithPid(format string) string {
 	pid := os.Getpid()
 
@@ -28,4 +35,8 @@ func Warnf(format string, args ...interface{}) {
 
 func Errorf(format string, args ...interface{}) {
 	log.Errorf(formatWithPid(format), args...)
+}
+
+func Debugf(format string, args ...interface{}) {
+	log.Debugf(formatWithPid(format), args...)
 }

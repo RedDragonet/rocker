@@ -32,14 +32,14 @@ func (d *BridgeNetworkDriver) initBridge(n *Network) error {
 		log.Errorf("分配 IP 地址: %s 到 bridge: %s 失败: %v ", gatewayIP, bridgeName, err)
 		return fmt.Errorf("分配 IP 地址: %s 到 bridge: %s 失败: %v ", gatewayIP, bridgeName, err)
 	}
-	log.Infof("分配 IP 地址: %s 到 bridge: %s ", gatewayIP, bridgeName)
+	log.Debugf("分配 IP 地址: %s 到 bridge: %s ", gatewayIP, bridgeName)
 
 	//启动 Bridge
 	if err := setInterfaceUP(bridgeName); err != nil {
 		log.Errorf("Bridge  %s, 启动失败: %v", bridgeName, err)
 		return fmt.Errorf("Bridge  %s, 启动失败: %v", bridgeName, err)
 	}
-	log.Infof("Bridge  %s, 启动", bridgeName)
+	log.Debugf("Bridge  %s, 启动", bridgeName)
 
 	//设置 IPTable
 	if err := setupIPTables(bridgeName, n.IpRange); err != nil {
@@ -159,7 +159,7 @@ func setInterfaceIP(name string, rawIP string) error {
 		if err == nil {
 			break
 		}
-		log.Infof("获取新的 Bridge 设备失败， [ %s ]... 重试", name)
+		log.Debugf("获取新的 Bridge 设备失败， [ %s ]... 重试", name)
 		time.Sleep(2 * time.Second)
 	}
 	if err != nil {
@@ -173,7 +173,7 @@ func setInterfaceIP(name string, rawIP string) error {
 		return err
 	}
 	addr := &netlink.Addr{IPNet: ipNet, Peer: ipNet, Label: "", Flags: 0, Scope: 0, Broadcast: nil}
-	log.Infof("setInterfaceIP: %s ", addr)
+	log.Debugf("setInterfaceIP: %s ", addr)
 	return netlink.AddrAdd(iface, addr)
 }
 
@@ -185,7 +185,7 @@ func setupIPTables(bridgeName string, subnet *net.IPNet) error {
 	if err != nil {
 		log.Errorf("iptables 设置失败, %v ", output)
 	}
-	log.Infof("driver %s , iptables  设置 %s ", bridgeName, iptablesCmd)
+	log.Debugf("driver %s , iptables  设置 %s ", bridgeName, iptablesCmd)
 
 	iptablesCmd = fmt.Sprintf("-t nat -A POSTROUTING -o %s -m addrtype --src-type LOCAL --dst-type UNICAST -j MASQUERADE", bridgeName)
 	cmd = exec.Command("iptables", strings.Split(iptablesCmd, " ")...)
@@ -193,6 +193,6 @@ func setupIPTables(bridgeName string, subnet *net.IPNet) error {
 	if err != nil {
 		log.Errorf("iptables LOCALHOST 设置失败, %v ", output)
 	}
-	log.Infof("driver %s , iptables LOCALHOST 设置 %s ", bridgeName, iptablesCmd)
+	log.Debugf("driver %s , iptables LOCALHOST 设置 %s ", bridgeName, iptablesCmd)
 	return err
 }

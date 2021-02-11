@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	log "github.com/RedDragonet/rocker/pkg/pidlog"
+	"io/ioutil"
 	"net/url"
 	"os"
 	"path"
@@ -14,10 +15,13 @@ import (
 )
 
 var (
-	defaultImagePath   = "/var/lib/rocker/image/overlay2"
-	imageDb            = "imagedb"
-	layerDb            = "layerdb"
-	defaultImageDbPath = defaultImagePath + "/" + imageDb + "/"
+	defaultImagePath        = "/var/lib/rocker/image/overlay2"
+	imageDb                 = "imagedb"
+	layerDb                 = "layerdb"
+	repositoriesPath        = defaultImagePath + "/repositories/"
+	defaultImageContentPath = defaultImagePath + "/" + imageDb + "/content"
+
+	///var/lib/docker/image/overlay2/imagedb/content/sha256
 
 	//中科大镜像
 	registryBase = "https://ustc-edu-cn.mirror.aliyuncs.com"
@@ -29,9 +33,46 @@ type Image struct {
 	Repository string `json:"Repository"`
 	Tag        string `json:"Tag"`
 	//digest     string `json:"digest"`
-	ID      string    `json:"ID"`
-	Created time.Time `json:"Created"`
-	Size    int       `json:"Size"`
+	ID             string      `json:"ID"`
+	Created        time.Time   `json:"Created"`
+	Size           int         `json:"Size"`
+	ImageLayerInfo *LayersInfo `json:"image_layer_info"`
+	Runtime        *Runtime    `json:"runtime"`
+}
+
+func (image *Image) LayerPath(layerId string) string {
+	layerPath := path.Join(path.Join(defaultImagePath, layerDb))
+	sha256Path := path.Join(path.Join(layerPath, "sha256"))
+	return path.Join(sha256Path, layerId)
+}
+
+func (image *Image) GetRuntime() (*Runtime, error) {
+	if image.Runtime != nil {
+		return image.Runtime, nil
+	}
+
+	manifestFile := image.manifestFile()
+	file, err := os.Open(manifestFile)
+	if err != nil {
+		log.Errorf("error：", err)
+		return nil, err
+	}
+	defer file.Close()
+
+	data, err := ioutil.ReadAll(file)
+	if err != nil {
+		log.Errorf("error：", err)
+		return nil, err
+	}
+
+	r := &Runtime{}
+	image.Runtime = r
+	return r, json.Unmarshal(data, r)
+}
+
+func (image *Image) manifestFile() string {
+	sha256Path := path.Join(path.Join(defaultImageContentPath, "sha256"))
+	return path.Join(sha256Path, image.ID)
 }
 
 func (image *Image) dump(dumpPath string) error {
@@ -101,15 +142,15 @@ func (image *Image) load(dumpPath string) error {
 
 //遍历所有已经配置过的IMAGE
 func Init() error {
-	if _, err := os.Stat(defaultImageDbPath); err != nil {
+	if _, err := os.Stat(repositoriesPath); err != nil {
 		if os.IsNotExist(err) {
-			os.MkdirAll(defaultImageDbPath, 0644)
+			os.MkdirAll(repositoriesPath, 0644)
 		} else {
 			return err
 		}
 	}
 
-	filepath.Walk(defaultImageDbPath, func(imagPath string, info os.FileInfo, err error) error {
+	filepath.Walk(repositoriesPath, func(imagPath string, info os.FileInfo, err error) error {
 		if strings.HasSuffix(imagPath, "/") {
 			return nil
 		}
@@ -147,22 +188,32 @@ func ListImage() {
 	}
 }
 
-func DeleteImage(imageName string) error {
+func Get(imageName string) *Image {
+	if image, ok := images[fixImageName(imageName)]; ok {
+		return image
+	}
+	return nil
+}
+
+func fixImageName(imageName string) string {
 	imageName = strings.Trim(imageName, "/")
 	imageNameSplit := strings.Split(imageName, "/")
 	if len(imageNameSplit) < 2 {
 		imageName = "library/" + imageNameSplit[0]
 	}
+	return imageName
+}
 
-	image, ok := images[imageName]
+func Delete(imageName string) error {
+	image, ok := images[fixImageName(imageName)]
 	if !ok {
 		return fmt.Errorf("未找到对应的 Image: %s", imageName)
 	}
 
-	return image.remove(defaultImageDbPath)
+	return image.remove(repositoriesPath)
 }
 
-func PullImage(imageName string) error {
+func Pull(imageName string) error {
 	domain, imagePath, err := parseImageUrl(imageName)
 	if err != nil {
 		return err
@@ -198,18 +249,27 @@ func PullImage(imageName string) error {
 		return err
 	}
 
-	image := Image{
-		Repository: imagePath,
-		Tag:        "latest",
-		ID:         strings.TrimPrefix(registry.suitableContentDigest, "sha256:"),
-		Created:    time.Now(),
-		Size:       registry.ImageSize(),
-	}
-
-	err = image.dump(defaultImageDbPath)
+	//5. 写入镜像信息
+	err = registry.DownloadImageContent(defaultImageContentPath)
 	if err != nil {
 		return err
 	}
+
+	image := &Image{
+		Repository:     imagePath,
+		Tag:            "latest",
+		ID:             strings.TrimPrefix(registry.ImageLayerInfo.Config.Digest, "sha256:"),
+		Created:        time.Now(),
+		Size:           registry.ImageSize(),
+		ImageLayerInfo: registry.ImageLayerInfo,
+	}
+
+	err = image.dump(repositoriesPath)
+	if err != nil {
+		return err
+	}
+
+	images[image.Repository] = image
 	return nil
 }
 
