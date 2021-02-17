@@ -99,6 +99,10 @@ A multithreaded process may not change user namespace with setns()
 ---https://man7.org/linux/man-pages/man2/setns.2.html
 ```
 
+## 知识点
+
+![](docker.png)
+
 ## 感谢
 
 代码参考 https://github.com/xianlubird/mydocker
