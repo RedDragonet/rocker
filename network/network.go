@@ -7,6 +7,7 @@ import (
 	log "github.com/RedDragonet/rocker/pkg/pidlog"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
+	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -104,6 +105,26 @@ func (nw *Network) load(dumpPath string) error {
 //注册已经支持 Driver ，目前只有 Bridge
 //遍历所有已经配置过的网络
 func Init() error {
+	forwarding, err := ioutil.ReadFile("/proc/sys/net/ipv4/conf/all/forwarding")
+	if err != nil {
+		return err
+	}
+	routeLocalNet, err := ioutil.ReadFile("/proc/sys/net/ipv4/conf/all/route_localnet")
+	if err != nil {
+		return err
+	}
+
+	if forwarding[0] != '1' {
+		log.Errorf("建议按照如下命令设置")
+		log.Errorf("sysctl -w net.ipv4.conf.all.forwarding=1")
+		return fmt.Errorf("forwarding 参数未配置正确")
+	}
+	if routeLocalNet[0] != '1' {
+		log.Errorf("建议按照如下命令设置")
+		log.Errorf("sysctl -w net.ipv4.conf.all.route_localnet=1")
+		return fmt.Errorf("route_localnet 参数未配置正确")
+	}
+
 	var bridgeDriver = BridgeNetworkDriver{}
 	drivers[bridgeDriver.Name()] = &bridgeDriver
 
@@ -215,6 +236,10 @@ func Connect(networkName string, cinfo *container.ContainerInfo) error {
 		return err
 	}
 
+	if err = container.RecordContainerIP(cinfo.ID, ip); err != nil {
+		return err
+	}
+
 	return configPortMapping(ep, cinfo)
 }
 
@@ -309,11 +334,27 @@ func configPortMapping(ep *Endpoint, cinfo *container.ContainerInfo) error {
 			log.Errorf("端口映射格式错误, %v", pm)
 			continue
 		}
-		iptablesCmd := fmt.Sprintf("-t nat -A PREROUTING -p tcp -m tcp --dport %s ! -i lo -j DNAT --to-destination %s:%s",
-			portMapping[0], ep.IPAddress.String(), portMapping[1])
+
+		//判断端口占用
+		iptablesCmd := fmt.Sprintf("-t nat -L PREROUTING -nv")
 		cmd := exec.Command("iptables", strings.Split(iptablesCmd, " ")...)
 		//err := cmd.Run()
 		output, err := cmd.Output()
+		if err != nil {
+			log.Errorf("iptables 查询失败, %s %s %v", iptablesCmd, output, err)
+			continue
+		}
+
+		if strings.Index(string(output), fmt.Sprintf("dpt:%s", portMapping[0])) != -1 {
+			log.Errorf("端口 %s 已经被占用", portMapping[0])
+			return fmt.Errorf("端口 %s 已经被占用", portMapping[0])
+		}
+
+		iptablesCmd = fmt.Sprintf("-t nat -A PREROUTING -p tcp -m tcp --dport %s ! -i lo -j DNAT --to-destination %s:%s",
+			portMapping[0], ep.IPAddress.String(), portMapping[1])
+		cmd = exec.Command("iptables", strings.Split(iptablesCmd, " ")...)
+		//err := cmd.Run()
+		output, err = cmd.Output()
 		if err != nil {
 			log.Errorf("iptables 设置失败, %v", output)
 			continue

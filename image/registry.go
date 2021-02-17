@@ -10,6 +10,8 @@ import (
 	"path"
 	"runtime"
 	"strings"
+	"sync"
+	"time"
 )
 
 type Registry struct {
@@ -173,30 +175,43 @@ func (r *Registry) DownloadLayers(layerDbPath string) error {
 	fmt.Println("使用默认Tag: latest")
 	fmt.Printf("latest: 从 %s 拉取\n", r.ImagePath)
 
-	for _, layer := range r.ImageLayerInfo.Layers {
-		layerDigest := strings.TrimPrefix(layer.Digest, "sha256:")
-		fmt.Printf("\r%s: 拉取文件层", layerDigest[:13])
+	wait := sync.WaitGroup{}
 
-		downloadPath := path.Join(layerDbSha256Path, layerDigest)
-		err := os.MkdirAll(downloadPath, 0700)
-		if err != nil {
-			log.Errorf("创建下载目录失败 %v", err)
-		}
+	progress := &Progress{MaxLine: len(r.ImageLayerInfo.Layers)}
+	for index, layer := range r.ImageLayerInfo.Layers {
+		wait.Add(1)
+		go func(index int, digest string) {
+			defer wait.Done()
 
-		layerBlobsUrl := fmt.Sprintf("%s/v2/%s/blobs/%s", r.Domain, r.ImagePath, layer.Digest)
+			layerDigest := strings.TrimPrefix(digest, "sha256:")
+			fmt.Printf("\r%s: 拉取文件层", layerDigest[:13])
 
-		filePath := path.Join(downloadPath, "tar-split.json.gz")
+			downloadPath := path.Join(layerDbSha256Path, layerDigest)
+			err := os.MkdirAll(downloadPath, 0700)
+			if err != nil {
+				log.Errorf("创建下载目录失败 %v", err)
+				return
+			}
 
-		if _, err := os.Stat(filePath); err == nil {
-			fmt.Printf("\r%s: 文件层已存在\n", layerDigest[:13])
-			continue
-		}
-		err = DownloadFile(layerDigest, filePath, layerBlobsUrl, true)
-		if err != nil {
-			log.Errorf("DownloadFile error %v", err)
-		}
+			layerBlobsUrl := fmt.Sprintf("%s/v2/%s/blobs/%s", r.Domain, r.ImagePath, digest)
 
+			filePath := path.Join(downloadPath, "tar-split.json.gz")
+
+			if _, err := os.Stat(filePath); err == nil {
+				//防止控制台刷新异常
+				time.Sleep(100 * time.Millisecond)
+
+				progress.skip(index, layerDigest)
+				return
+			}
+			err = DownloadFile(index, layerDigest, filePath, layerBlobsUrl, progress)
+			if err != nil {
+				log.Errorf("DownloadFile error %v", err)
+			}
+		}(index, layer.Digest)
 	}
+	wait.Wait()
+
 	return nil
 }
 
@@ -224,13 +239,13 @@ func (r *Registry) DownloadImageContent(defaultImageContentPath string) error {
 	digest := strings.TrimPrefix(r.ImageLayerInfo.Config.Digest, "sha256:")
 	filePath := path.Join(sha256Path, digest)
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		err = DownloadFile(digest, filePath, layerBlobsUrl, false)
+		err = DownloadFile(0, digest, filePath, layerBlobsUrl, nil)
 		if err != nil {
 			log.Errorf("DownloadFile error %v", err)
 		}
 	}
 
-	fmt.Printf("下载完成: %s\n", digest)
+	fmt.Printf("\n下载完成: %s\n", digest)
 
 	return nil
 }

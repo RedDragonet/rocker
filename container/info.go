@@ -1,6 +1,9 @@
 package container
 
-import "time"
+import (
+	"net"
+	"time"
+)
 
 //https://github.com/moby/moby/blob/46cdcd206c56172b95ba5c77b827a722dab426c5/container/state.go#L17
 type ContainerInfo struct {
@@ -32,6 +35,7 @@ type Config struct {
 	Volumes     []string             `json:"Volumes"`
 	CGroup      CGroupResourceConfig `json:"CGroup"`
 	PortMapping []string             `json:"portmapping"`
+	IP          net.IP               `json:"IP"`
 }
 
 type CGroupResourceConfig struct {

@@ -222,8 +222,8 @@ func NewParentProcess(interactive, tty bool, image string, volumeSlice, environS
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 	} else {
-		dirURL := path.Join(DefaultInfoLocation, containerName)
-		if err := os.MkdirAll(dirURL, 0622); err != nil {
+		dirURL := path.Join(DefaultInfoLocation, containerId)
+		if err := os.MkdirAll(dirURL, 0644); err != nil {
 			log.Errorf("NewParentProcess mkdir %s error %v", dirURL, err)
 			return nil, nil
 		}

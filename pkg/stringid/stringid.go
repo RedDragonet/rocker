@@ -6,6 +6,7 @@ import (
 )
 
 const shortLen = 12
+
 func GenerateRandomID() string {
 	b := make([]byte, 32)
 	for {

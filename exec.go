@@ -74,13 +74,15 @@ func ExecContainer(containerName string, cmdArray []string) {
 	}
 	err = cgroupManager.Apply(parent.Process.Pid, res)
 	if err != nil {
-		exitError(err)
+		log.Errorf("ExecContainer: cgroupManager.Apply error %v", err)
+		return
 	}
 
 	log.Info("ExecContainer: cgroup初始化结束")
 	parent.ExtraFiles[0].Close()
 	if err := sendInitCommand(cmdArray, parentPipeWrite); err != nil {
-		exitError(err)
+		log.Errorf("ExecContainer: sendInitCommand error %v", err)
+		return
 	}
 
 	log.Infof("ExecContainer: 创建父运行成功，开始等待")

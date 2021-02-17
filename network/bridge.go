@@ -135,6 +135,15 @@ func createBridgeInterface(bridgeName string) error {
 	return nil
 }
 
+//Bridge 是否存在
+func HasBridge(bridgeName string) bool {
+	_, err := net.InterfaceByName(bridgeName)
+	if err == nil || !strings.Contains(err.Error(), "no such network interface") {
+		return true
+	}
+	return false
+}
+
 //启动 Interface
 func setInterfaceUP(interfaceName string) error {
 	iface, err := netlink.LinkByName(interfaceName)

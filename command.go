@@ -210,7 +210,9 @@ func networkCommand() *cli.Command {
 					if context.Args().Len() < 1 {
 						return fmt.Errorf("参数缺失")
 					}
-					network.Init()
+					if err := network.Init(); err != nil {
+						return err
+					}
 					//创建网络设备
 					err := network.CreateNetwork(context.String("driver"), context.String("subnet"), context.Args().Get(0))
 					if err != nil {
@@ -223,7 +225,9 @@ func networkCommand() *cli.Command {
 				Name:  "list",
 				Usage: "列出所有已经创建的网络设备",
 				Action: func(context *cli.Context) error {
-					network.Init()
+					if err := network.Init(); err != nil {
+						return err
+					}
 
 					network.ListNetwork()
 					return nil
@@ -236,7 +240,9 @@ func networkCommand() *cli.Command {
 					if context.Args().Len() < 1 {
 						return fmt.Errorf("参数缺失")
 					}
-					network.Init()
+					if err := network.Init(); err != nil {
+						return err
+					}
 					err := network.DeleteNetwork(context.Args().Get(0))
 					if err != nil {
 						return fmt.Errorf("删除 network 失败: %+v", err)
@@ -258,7 +264,7 @@ func pullCommand() *cli.Command {
 			}
 			err := image.Pull(context.Args().Get(0))
 			if err != nil {
-				log.Errorf("镜像拉取失败 %v",err)
+				log.Errorf("镜像拉取失败 %v", err)
 			}
 			return nil
 		},
