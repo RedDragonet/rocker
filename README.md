@@ -3,6 +3,8 @@ Docker from scratch
 
 从零开始写一个 Docker
 
+![demo](demo.webp)
+
 ## 需求 
 - Linux kernel > 3.12
 - 暂不支持 Windows / MacOS 系统运行
@@ -16,7 +18,7 @@ brew install FiloSottile/musl-cross/musl-cross
 
 - make build 本地编译
 - make build2remote 本地编译并发送到远程主机，远程主机IP配置在 makefile 中
-    
+  
 ## 配置
 
 ```bash
